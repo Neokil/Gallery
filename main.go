@@ -184,9 +184,8 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 
-		// Generate unique filename
-		ext := filepath.Ext(fileHeader.Filename)
-		filename := fmt.Sprintf("%d_%s%s", time.Now().Unix(), generateRandomString(8), ext)
+		// Generate unique filename preserving original name
+		filename := generateUniqueFilename(fileHeader.Filename)
 		filePath := filepath.Join(uploadDir, filename)
 
 		dst, err := os.Create(filePath)
@@ -266,6 +265,32 @@ func generateRandomString(length int) string {
 	bytes := make([]byte, length)
 	rand.Read(bytes)
 	return base64.URLEncoding.EncodeToString(bytes)[:length]
+}
+
+func generateUniqueFilename(originalFilename string) string {
+	// Clean the filename to remove any path components
+	originalFilename = filepath.Base(originalFilename)
+
+	// Check if the original filename already exists
+	filePath := filepath.Join(uploadDir, originalFilename)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		// File doesn't exist, use original name
+		return originalFilename
+	}
+
+	// File exists, generate a unique name with suffix
+	ext := filepath.Ext(originalFilename)
+	nameWithoutExt := strings.TrimSuffix(originalFilename, ext)
+
+	counter := 1
+	for {
+		newFilename := fmt.Sprintf("%s_%d%s", nameWithoutExt, counter, ext)
+		filePath := filepath.Join(uploadDir, newFilename)
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			return newFilename
+		}
+		counter++
+	}
 }
 
 func savePhotoMetadata(filename string, info PhotoInfo) {
