@@ -22,6 +22,7 @@ type PhotoInfo struct {
 	Path     string    `json:"path"`
 	Name     string    `json:"name"`
 	Uploader string    `json:"uploader"`
+	Event    string    `json:"event"`
 	Date     time.Time `json:"date"`
 }
 
@@ -167,6 +168,9 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	r.ParseMultipartForm(32 << 20) // 32MB max
 
+	// Get event name from form
+	eventName := strings.TrimSpace(r.FormValue("event_name"))
+
 	files := r.MultipartForm.File["photos"]
 	if len(files) == 0 {
 		http.Error(w, "No files uploaded", http.StatusBadRequest)
@@ -201,6 +205,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 			Path:     "/uploads/" + filename,
 			Name:     filename,
 			Uploader: userName,
+			Event:    eventName,
 			Date:     time.Now(),
 		}
 		savePhotoMetadata(filename, photoInfo)
@@ -230,6 +235,7 @@ func getPhotos() ([]PhotoInfo, error) {
 					Path:     "/uploads/" + file.Name(),
 					Name:     file.Name(),
 					Uploader: "Unknown",
+					Event:    "",
 					Date:     time.Now(),
 				}
 			}

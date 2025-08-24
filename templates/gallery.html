@@ -18,20 +18,16 @@
 
     <main>
         <div class="upload-section">
-            <form id="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
-                <div class="upload-area" id="upload-area">
-                    <div class="upload-content" id="upload-content">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7,10 12,15 17,10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        <p>Drag photos here or click to select</p>
-                        <input type="file" id="file-input" name="photos" multiple accept="image/*" hidden>
-                    </div>
+            <div class="upload-area" id="upload-area">
+                <div class="upload-content" id="upload-content">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7,10 12,15 17,10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <p>Drag photos here or click to select</p>
                 </div>
-            </form>
+            </div>
         </div>
 
         <div class="gallery">
@@ -39,7 +35,10 @@
             <div class="photo-item">
                 <img src="{{.Path}}" alt="Gallery photo" loading="lazy" onclick="openModal('{{.Path}}')">
                 <div class="photo-attribution">
-                    Uploaded by {{.Uploader}}
+                    {{if .Event}}
+                        <div class="event-name">{{.Event}}</div>
+                    {{end}}
+                    <div class="uploader-name">Uploaded by {{.Uploader}}</div>
                 </div>
             </div>
             {{else}}
@@ -49,6 +48,41 @@
             {{end}}
         </div>
     </main>
+
+    <!-- Upload Dialog -->
+    <div id="upload-dialog" class="dialog-overlay" style="display: none;">
+        <div class="dialog-content">
+            <div class="dialog-header">
+                <h3>Upload Photos</h3>
+                <button class="dialog-close" onclick="closeUploadDialog()">&times;</button>
+            </div>
+            <form id="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
+                <div class="dialog-body">
+                    <div class="form-group">
+                        <label for="event-name">Event Name (optional)</label>
+                        <input type="text" id="event-name" name="event_name" placeholder="e.g., Birthday Party, Wedding, Vacation">
+                        <small>Add an event name to help organize your photos</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Selected Photos</label>
+                        <div class="file-list" id="file-list">
+                            <p class="no-files">No photos selected</p>
+                        </div>
+                        <button type="button" class="select-files-btn" onclick="selectFiles()">
+                            Choose Photos
+                        </button>
+                        <input type="file" id="file-input" name="photos" multiple accept="image/*" hidden>
+                    </div>
+                </div>
+                
+                <div class="dialog-footer">
+                    <button type="button" class="btn-secondary" onclick="closeUploadDialog()">Cancel</button>
+                    <button type="submit" class="btn-primary" id="upload-submit-btn" disabled>Upload Photos</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Modal for full-size images -->
     <div id="modal" class="modal" onclick="closeModal()">
