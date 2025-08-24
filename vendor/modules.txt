@@ -1,0 +1,6 @@
+# github.com/gorilla/securecookie v1.1.2
+## explicit; go 1.20
+github.com/gorilla/securecookie
+# github.com/gorilla/sessions v1.2.2
+## explicit; go 1.20
+github.com/gorilla/sessions
