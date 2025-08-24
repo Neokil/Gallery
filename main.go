@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -17,12 +18,20 @@ import (
 	"github.com/gorilla/sessions"
 )
 
+type PhotoInfo struct {
+	Path     string    `json:"path"`
+	Name     string    `json:"name"`
+	Uploader string    `json:"uploader"`
+	Date     time.Time `json:"date"`
+}
+
 var (
-	store     = sessions.NewCookieStore([]byte(generateSecretKey()))
-	templates *template.Template
-	siteTitle = getEnv("SITE_TITLE", "Photo Gallery")
-	password  = getEnv("GALLERY_PASSWORD", "")
-	uploadDir = getEnv("UPLOAD_DIR", "./uploads")
+	store       = sessions.NewCookieStore([]byte(generateSecretKey()))
+	templates   *template.Template
+	siteTitle   = getEnv("SITE_TITLE", "Photo Gallery")
+	password    = getEnv("GALLERY_PASSWORD", "")
+	uploadDir   = getEnv("UPLOAD_DIR", "./uploads")
+	metadataDir = getEnv("METADATA_DIR", "./metadata")
 )
 
 func main() {
@@ -30,9 +39,12 @@ func main() {
 		log.Fatal("GALLERY_PASSWORD environment variable is required")
 	}
 
-	// Create upload directory
+	// Create upload and metadata directories
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		log.Fatal("Failed to create upload directory:", err)
+	}
+	if err := os.MkdirAll(metadataDir, 0755); err != nil {
+		log.Fatal("Failed to create metadata directory:", err)
 	}
 
 	// Parse templates
@@ -102,6 +114,13 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		if r.FormValue("password") == password {
 			session, _ := store.Get(r, "gallery-session")
 			session.Values["authenticated"] = true
+
+			// Store the user's name if provided
+			name := strings.TrimSpace(r.FormValue("name"))
+			if name != "" {
+				session.Values["user_name"] = name
+			}
+
 			session.Save(r, w)
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
@@ -139,6 +158,13 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user name from session
+	session, _ := store.Get(r, "gallery-session")
+	userName := "Anonymous"
+	if name, ok := session.Values["user_name"].(string); ok && name != "" {
+		userName = name
+	}
+
 	r.ParseMultipartForm(32 << 20) // 32MB max
 
 	files := r.MultipartForm.File["photos"]
@@ -161,15 +187,24 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		// Generate unique filename
 		ext := filepath.Ext(fileHeader.Filename)
 		filename := fmt.Sprintf("%d_%s%s", time.Now().Unix(), generateRandomString(8), ext)
-		filepath := filepath.Join(uploadDir, filename)
+		filePath := filepath.Join(uploadDir, filename)
 
-		dst, err := os.Create(filepath)
+		dst, err := os.Create(filePath)
 		if err != nil {
 			continue
 		}
 		defer dst.Close()
 
 		io.Copy(dst, file)
+
+		// Save photo metadata
+		photoInfo := PhotoInfo{
+			Path:     "/uploads/" + filename,
+			Name:     filename,
+			Uploader: userName,
+			Date:     time.Now(),
+		}
+		savePhotoMetadata(filename, photoInfo)
 	}
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -179,8 +214,8 @@ func serveUploads(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "."+r.URL.Path)
 }
 
-func getPhotos() ([]string, error) {
-	var photos []string
+func getPhotos() ([]PhotoInfo, error) {
+	var photos []PhotoInfo
 
 	files, err := os.ReadDir(uploadDir)
 	if err != nil {
@@ -189,7 +224,17 @@ func getPhotos() ([]string, error) {
 
 	for _, file := range files {
 		if !file.IsDir() && isImageFile(file.Name()) {
-			photos = append(photos, "/uploads/"+file.Name())
+			photoInfo := loadPhotoMetadata(file.Name())
+			if photoInfo.Path == "" {
+				// Fallback for photos without metadata
+				photoInfo = PhotoInfo{
+					Path:     "/uploads/" + file.Name(),
+					Name:     file.Name(),
+					Uploader: "Unknown",
+					Date:     time.Now(),
+				}
+			}
+			photos = append(photos, photoInfo)
 		}
 	}
 
@@ -221,6 +266,37 @@ func generateRandomString(length int) string {
 	bytes := make([]byte, length)
 	rand.Read(bytes)
 	return base64.URLEncoding.EncodeToString(bytes)[:length]
+}
+
+func savePhotoMetadata(filename string, info PhotoInfo) {
+	metadataFile := filepath.Join(metadataDir, filename+".json")
+	data, err := json.Marshal(info)
+	if err != nil {
+		log.Printf("Failed to marshal metadata for %s: %v", filename, err)
+		return
+	}
+
+	err = os.WriteFile(metadataFile, data, 0644)
+	if err != nil {
+		log.Printf("Failed to save metadata for %s: %v", filename, err)
+	}
+}
+
+func loadPhotoMetadata(filename string) PhotoInfo {
+	metadataFile := filepath.Join(metadataDir, filename+".json")
+	data, err := os.ReadFile(metadataFile)
+	if err != nil {
+		return PhotoInfo{}
+	}
+
+	var info PhotoInfo
+	err = json.Unmarshal(data, &info)
+	if err != nil {
+		log.Printf("Failed to unmarshal metadata for %s: %v", filename, err)
+		return PhotoInfo{}
+	}
+
+	return info
 }
 
 func downloadAllHandler(w http.ResponseWriter, r *http.Request) {

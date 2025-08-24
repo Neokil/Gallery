@@ -4,6 +4,7 @@ photo-gallery
 
 # Uploads directory
 uploads/
+metadata/
 
 # Environment files
 .env

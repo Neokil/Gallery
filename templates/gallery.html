@@ -37,7 +37,10 @@
         <div class="gallery">
             {{range .Photos}}
             <div class="photo-item">
-                <img src="{{.}}" alt="Gallery photo" loading="lazy" onclick="openModal('{{.}}')">
+                <img src="{{.Path}}" alt="Gallery photo" loading="lazy" onclick="openModal('{{.Path}}')">
+                <div class="photo-attribution">
+                    Uploaded by {{.Uploader}}
+                </div>
             </div>
             {{else}}
             <div class="empty-gallery">
