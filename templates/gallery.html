@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Title}}</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
     <header>
         <h1>{{.Title}}</h1>
         {{if .Photos}}
-            <a href="/download-all" class="download-btn">Download All</a>
+        <a href="/download-all" class="download-btn">Download All</a>
         {{end}}
     </header>
 
@@ -18,8 +20,9 @@
         <div class="upload-section">
             <form id="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
                 <div class="upload-area" id="upload-area">
-                    <div class="upload-content">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <div class="upload-content" id="upload-content">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                             <polyline points="7,10 12,15 17,10"></polyline>
                             <line x1="12" y1="15" x2="12" y2="3"></line>
@@ -28,19 +31,18 @@
                         <input type="file" id="file-input" name="photos" multiple accept="image/*" hidden>
                     </div>
                 </div>
-                <button type="submit" id="upload-btn" disabled>Upload Photos</button>
             </form>
         </div>
 
         <div class="gallery">
             {{range .Photos}}
-                <div class="photo-item">
-                    <img src="{{.}}" alt="Gallery photo" loading="lazy" onclick="openModal('{{.}}')">
-                </div>
+            <div class="photo-item">
+                <img src="{{.}}" alt="Gallery photo" loading="lazy" onclick="openModal('{{.}}')">
+            </div>
             {{else}}
-                <div class="empty-gallery">
-                    <p>No photos yet. Upload some to get started!</p>
-                </div>
+            <div class="empty-gallery">
+                <p>No photos yet. Upload some to get started!</p>
+            </div>
             {{end}}
         </div>
     </main>
@@ -53,4 +55,5 @@
 
     <script src="/static/script.js"></script>
 </body>
+
 </html>
