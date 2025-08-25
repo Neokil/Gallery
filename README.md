@@ -37,10 +37,17 @@ The application has been refactored to use a clean architecture with the followi
 - **Photo filtering**: Filter by event or uploader
 - **Bulk download**: Download all or filtered photos as ZIP
 - **Automatic metadata generation**: Creates metadata for existing images on startup
+- **EXIF photo time extraction**: Extracts actual photo taken time from image metadata
+  - Supports JPEG images with EXIF DateTime tags (DateTimeOriginal, DateTime, DateTimeDigitized)
+  - Filename pattern recognition for images without EXIF data
+  - Supports common camera/phone filename patterns (IMG_20231225_143022, PXL_20231225_143022, etc.)
+  - Gracefully falls back to upload time when no date information is available
+- **Smart photo sorting**: Orders photos by actual photo time (newest first), falls back to upload time
 - **Automatic thumbnail generation**: Creates 300px thumbnails for fast gallery loading
   - Thumbnails generated on upload and startup for existing images
   - Maintains aspect ratio with high-quality JPEG compression
   - Falls back to original image if thumbnail unavailable
+  - Automatic cleanup of orphaned thumbnails on startup
 - **Metadata cleanup**: Removes orphaned metadata files automatically
 - **Responsive design**: Works on desktop and mobile
 - **Dark mode support**: Automatic based on system preference

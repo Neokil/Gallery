@@ -9,6 +9,7 @@ import (
 	"log"
 	"mime/multipart"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,6 +20,9 @@ import (
 	_ "image/jpeg" // Register JPEG format
 	"image/png"
 	_ "image/png" // Register PNG format
+
+	"github.com/rwcarlsen/goexif/exif"
+	"github.com/rwcarlsen/goexif/tiff"
 )
 
 const (
@@ -28,11 +32,56 @@ const (
 )
 
 type PhotoInfo struct {
-	Path     string    `json:"path"`
-	Name     string    `json:"name"`
-	Uploader string    `json:"uploader"`
-	Event    string    `json:"event"`
-	Date     time.Time `json:"date"`
+	Path      string    `json:"path"`
+	Name      string    `json:"name"`
+	Uploader  string    `json:"uploader"`
+	Event     string    `json:"event"`
+	Date      time.Time `json:"date"`      // Upload/file modification time
+	PhotoTime time.Time `json:"photo_time"` // Actual photo taken time from EXIF
+}
+
+// dateWalker implements exif.Walker to find date fields in EXIF data
+type dateWalker struct {
+	foundDate time.Time
+}
+
+func (w *dateWalker) Walk(name exif.FieldName, tag *tiff.Tag) error {
+	if !w.foundDate.IsZero() {
+		return nil // Already found a date
+	}
+
+	// Check if field name suggests it contains date/time
+	fieldStr := string(name)
+	if strings.Contains(strings.ToLower(fieldStr), "date") ||
+		strings.Contains(strings.ToLower(fieldStr), "time") {
+
+		if dateStr, err := tag.StringVal(); err == nil {
+			log.Printf("Found potential date field %s: %s", name, dateStr)
+
+			// Try various date formats
+			dateFormats := []string{
+				"2006:01:02 15:04:05",
+				"2006-01-02 15:04:05",
+				"2006:01:02T15:04:05",
+				"2006-01-02T15:04:05",
+				"2006:01:02 15:04:05-07:00",
+				"2006-01-02 15:04:05-07:00",
+				"2006:01:02",
+				"2006-01-02",
+				"2006/01/02 15:04:05",
+				"2006/01/02",
+			}
+
+			for _, format := range dateFormats {
+				if photoTime, err := time.Parse(format, dateStr); err == nil {
+					log.Printf("Successfully parsed date from field %s: %s", name, photoTime.Format(time.RFC3339))
+					w.foundDate = photoTime
+					return nil
+				}
+			}
+		}
+	}
+	return nil
 }
 
 type GalleryService struct {
@@ -73,16 +122,41 @@ func (s *GalleryService) GetPhotos() ([]PhotoInfo, error) {
 		if !file.IsDir() && s.isImageFile(file.Name()) {
 			photoInfo := s.loadPhotoMetadata(file.Name())
 			if photoInfo.Path == "" {
-				// Fallback for photos without metadata
+				// Fallback for photos without metadata - extract photo time
+				filePath := filepath.Join(s.uploadDir, file.Name())
+				photoTime := s.extractPhotoTime(filePath)
+
 				photoInfo = PhotoInfo{
-					Path:     "/uploads/" + file.Name(),
-					Name:     file.Name(),
-					Uploader: "Unknown",
-					Event:    "",
-					Date:     time.Now(),
+					Path:      "/uploads/" + file.Name(),
+					Name:      file.Name(),
+					Uploader:  "Unknown",
+					Event:     "",
+					Date:      time.Now(),
+					PhotoTime: photoTime,
 				}
 			}
 			photos = append(photos, photoInfo)
+		}
+	}
+
+	// Sort photos by photo taken time (newest first), fall back to upload time if no photo time
+	for i := 0; i < len(photos)-1; i++ {
+		for j := i + 1; j < len(photos); j++ {
+			timeI := photos[i].PhotoTime
+			timeJ := photos[j].PhotoTime
+
+			// Use upload time if photo time is not available
+			if timeI.IsZero() {
+				timeI = photos[i].Date
+			}
+			if timeJ.IsZero() {
+				timeJ = photos[j].Date
+			}
+
+			// Sort newest first
+			if timeI.Before(timeJ) {
+				photos[i], photos[j] = photos[j], photos[i]
+			}
 		}
 	}
 
@@ -184,13 +258,17 @@ func (s *GalleryService) SavePhoto(fileHeader *multipart.FileHeader, userName, e
 		// Don't fail the upload if thumbnail generation fails
 	}
 
+	// Extract photo taken time from EXIF
+	photoTime := s.extractPhotoTime(filePath)
+
 	// Save photo metadata
 	photoInfo := PhotoInfo{
-		Path:     "/uploads/" + filename,
-		Name:     filename,
-		Uploader: userName,
-		Event:    eventName,
-		Date:     time.Now(),
+		Path:      "/uploads/" + filename,
+		Name:      filename,
+		Uploader:  userName,
+		Event:     eventName,
+		Date:      time.Now(),
+		PhotoTime: photoTime,
 	}
 	s.savePhotoMetadata(filename, &photoInfo)
 
@@ -345,13 +423,18 @@ func (s *GalleryService) GenerateMissingMetadata() {
 			continue
 		}
 
+		// Extract photo taken time from EXIF
+		filePath := filepath.Join(s.uploadDir, file.Name())
+		photoTime := s.extractPhotoTime(filePath)
+
 		// Generate default metadata
 		photoInfo := PhotoInfo{
-			Path:     "/uploads/" + file.Name(),
-			Name:     file.Name(),
-			Uploader: "Unknown",
-			Event:    "",
-			Date:     fileInfo.ModTime(),
+			Path:      "/uploads/" + file.Name(),
+			Name:      file.Name(),
+			Uploader:  "Unknown",
+			Event:     "",
+			Date:      fileInfo.ModTime(),
+			PhotoTime: photoTime,
 		}
 
 		// Save the generated metadata
@@ -570,4 +653,140 @@ func (s *GalleryService) loadPhotoMetadata(filename string) PhotoInfo {
 	}
 
 	return info
+}
+
+func (s *GalleryService) extractPhotoTime(filePath string) time.Time {
+	// First try exiftool for comprehensive metadata extraction
+	if photoTime := s.extractPhotoTimeWithExifTool(filePath); !photoTime.IsZero() {
+		return photoTime
+	}
+
+	// Fallback to Go EXIF library for basic EXIF data
+	if photoTime := s.extractExifPhotoTime(filePath); !photoTime.IsZero() {
+		return photoTime
+	}
+
+	// No date found from EXIF metadata
+	return time.Time{}
+}
+
+func (s *GalleryService) extractExifPhotoTime(filePath string) time.Time {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return time.Time{} // Return zero time if can't open file
+	}
+	defer file.Close()
+
+	// Try to decode EXIF data
+	exifData, err := exif.Decode(file)
+	if err != nil {
+		// Not an error - many image formats don't have EXIF
+		return time.Time{} // Return zero time if no EXIF data
+	}
+
+	// Try multiple EXIF date fields in order of preference
+	dateFields := []exif.FieldName{
+		exif.DateTimeOriginal,  // When photo was taken (preferred)
+		exif.DateTime,          // When photo was last modified
+		exif.DateTimeDigitized, // When photo was digitized
+	}
+
+	for _, field := range dateFields {
+		if tag, err := exifData.Get(field); err == nil {
+			if dateStr, err := tag.StringVal(); err == nil {
+				// Try multiple date formats
+				dateFormats := []string{
+					"2006:01:02 15:04:05",       // Standard EXIF format
+					"2006-01-02 15:04:05",       // Alternative format
+					"2006:01:02T15:04:05",       // ISO-like with colons
+					"2006-01-02T15:04:05",       // ISO format
+					"2006:01:02 15:04:05-07:00", // With timezone
+					"2006-01-02 15:04:05-07:00", // With timezone
+				}
+
+				for _, format := range dateFormats {
+					if photoTime, err := time.Parse(format, dateStr); err == nil {
+						log.Printf("Extracted photo time from EXIF %s for %s: %s (format: %s)", field, filepath.Base(filePath), photoTime.Format(time.RFC3339), format)
+						return photoTime
+					}
+				}
+
+				log.Printf("Found EXIF %s for %s but couldn't parse date: %s", field, filepath.Base(filePath), dateStr)
+			}
+		}
+	}
+
+	// Try to extract from any field that might contain date information
+	log.Printf("Checking all EXIF fields for date information in %s", filepath.Base(filePath))
+	
+	// Create a walker to find date fields
+	walker := &dateWalker{}
+	if err := exifData.Walk(walker); err != nil {
+		log.Printf("Error walking EXIF data for %s: %v", filepath.Base(filePath), err)
+	}
+	
+	if !walker.foundDate.IsZero() {
+		return walker.foundDate
+	}
+
+	// No date fields found - this is normal for many images
+	return time.Time{} // Return zero time if no date fields found
+}
+
+
+func (s *GalleryService) extractPhotoTimeWithExifTool(filePath string) time.Time {
+	// Check if exiftool is available
+	if _, err := exec.LookPath("exiftool"); err != nil {
+		// exiftool not available, skip this method
+		return time.Time{}
+	}
+
+	// Try to extract date fields using exiftool
+	dateFields := []string{
+		"DateTimeOriginal",
+		"CreateDate",
+		"DateTimeCreated",
+		"MetadataDate",
+		"DateTime",
+		"DateTimeDigitized",
+		"ModifyDate",
+	}
+
+	for _, field := range dateFields {
+		cmd := exec.Command("exiftool", "-s", "-s", "-s", "-"+field, filePath)
+		output, err := cmd.Output()
+		if err != nil {
+			continue // Field not found or error, try next field
+		}
+
+		dateStr := strings.TrimSpace(string(output))
+		if dateStr == "" || dateStr == "-" {
+			continue // Empty or no value
+		}
+
+		// Try to parse the date string with various formats
+		dateFormats := []string{
+			"2006:01:02 15:04:05-07:00", // With timezone
+			"2006:01:02 15:04:05+07:00", // With timezone
+			"2006:01:02 15:04:05",       // Standard EXIF format
+			"2006-01-02 15:04:05",       // Alternative format
+			"2006:01:02T15:04:05-07:00", // ISO-like with timezone
+			"2006-01-02T15:04:05-07:00", // ISO with timezone
+			"2006:01:02T15:04:05",       // ISO-like
+			"2006-01-02T15:04:05",       // ISO format
+			"2006:01:02",                // Date only
+			"2006-01-02",                // Date only alternative
+		}
+
+		for _, format := range dateFormats {
+			if photoTime, err := time.Parse(format, dateStr); err == nil {
+				log.Printf("Extracted photo time from exiftool field %s for %s: %s", field, filepath.Base(filePath), photoTime.Format(time.RFC3339))
+				return photoTime
+			}
+		}
+
+		log.Printf("Found exiftool field %s for %s but couldn't parse date: %s", field, filepath.Base(filePath), dateStr)
+	}
+
+	return time.Time{} // No date found
 }

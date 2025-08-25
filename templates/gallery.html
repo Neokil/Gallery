@@ -120,6 +120,11 @@
                     {{if .Event}}
                     <div class="event-name">{{.Event}}</div>
                     {{end}}
+                    {{if not .PhotoTime.IsZero}}
+                    <div class="photo-date">{{.PhotoTime.Format "Jan 2, 2006 3:04 PM"}}</div>
+                    {{else if not .Date.IsZero}}
+                    <div class="photo-date">{{.Date.Format "Jan 2, 2006 3:04 PM"}}</div>
+                    {{end}}
                     <div class="uploader-name">Uploaded by {{.Uploader}}</div>
                 </div>
             </div>

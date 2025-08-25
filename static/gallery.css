@@ -303,6 +303,13 @@ main {
     margin-bottom: 2px;
 }
 
+.photo-date {
+    font-weight: 500;
+    color: #7f8c8d;
+    margin-bottom: 2px;
+    font-size: 11px;
+}
+
 .uploader-name {
     color: #666;
 }
@@ -690,6 +697,10 @@ main {
 
     .event-name {
         color: #ffffff;
+    }
+
+    .photo-date {
+        color: #888888;
     }
 
     .uploader-name {

@@ -465,3 +465,126 @@ func TestCleanupOrphanedThumbnails(t *testing.T) {
 		t.Error("Orphaned thumbnail should have been removed")
 	}
 }
+func TestExtractPhotoTime(t *testing.T) {
+	// Create a temporary directory for testing
+	tempDir := t.TempDir()
+	uploadDir := filepath.Join(tempDir, "uploads")
+	metadataDir := filepath.Join(tempDir, "metadata")
+
+	// Create directories
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(metadataDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	service := NewGalleryService(uploadDir, metadataDir)
+
+	// Test with a non-existent file
+	photoTime := service.extractPhotoTime("nonexistent.jpg")
+	if !photoTime.IsZero() {
+		t.Error("Expected zero time for non-existent file")
+	}
+
+	// Create a simple PNG file (won't have EXIF data)
+	pngPath := filepath.Join(uploadDir, "test.png")
+	pngFile, err := os.Create(pngPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pngFile.Close()
+
+	// Test with PNG file (no EXIF data expected)
+	photoTime = service.extractPhotoTime(pngPath)
+	if !photoTime.IsZero() {
+		t.Error("Expected zero time for PNG file without EXIF data")
+	}
+}
+
+func TestPhotoSorting(t *testing.T) {
+	// Create a temporary directory for testing
+	tempDir := t.TempDir()
+	uploadDir := filepath.Join(tempDir, "uploads")
+	metadataDir := filepath.Join(tempDir, "metadata")
+
+	// Create directories
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(metadataDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	service := NewGalleryService(uploadDir, metadataDir)
+
+	// Create test files with different times
+	now := time.Now()
+	older := now.Add(-48 * time.Hour)  // 2 days ago
+	newer := now.Add(24 * time.Hour)   // 1 day in future
+	middle := now.Add(-12 * time.Hour) // 12 hours ago
+
+	// Create metadata files with different photo times
+	photos := []PhotoInfo{
+		{
+			Path:      "/uploads/old.jpg",
+			Name:      "old.jpg",
+			Uploader:  "Test",
+			Event:     "",
+			Date:      now,
+			PhotoTime: older, // 2 days ago
+		},
+		{
+			Path:      "/uploads/new.jpg",
+			Name:      "new.jpg",
+			Uploader:  "Test",
+			Event:     "",
+			Date:      now,
+			PhotoTime: newer, // 1 day in future
+		},
+		{
+			Path:      "/uploads/no_exif.jpg",
+			Name:      "no_exif.jpg",
+			Uploader:  "Test",
+			Event:     "",
+			Date:      middle,      // 12 hours ago (fallback time)
+			PhotoTime: time.Time{}, // No photo time
+		},
+	}
+
+	// Save metadata files
+	for _, photo := range photos {
+		service.savePhotoMetadata(photo.Name, &photo)
+		// Create empty image files
+		filePath := filepath.Join(uploadDir, photo.Name)
+		file, err := os.Create(filePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		file.Close()
+	}
+
+	// Get photos (should be sorted)
+	sortedPhotos, err := service.GetPhotos()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(sortedPhotos) != 3 {
+		t.Fatalf("Expected 3 photos, got %d", len(sortedPhotos))
+	}
+
+	// Should be sorted newest first
+	// new.jpg (newer photo time - 1 day in future) should be first
+	// no_exif.jpg (no photo time, falls back to middle upload time - 12 hours ago) should be second
+	// old.jpg (older photo time - 2 days ago) should be last
+	if sortedPhotos[0].Name != "new.jpg" {
+		t.Errorf("Expected first photo to be new.jpg, got %s", sortedPhotos[0].Name)
+	}
+	if sortedPhotos[1].Name != "no_exif.jpg" {
+		t.Errorf("Expected second photo to be no_exif.jpg, got %s", sortedPhotos[1].Name)
+	}
+	if sortedPhotos[2].Name != "old.jpg" {
+		t.Errorf("Expected third photo to be old.jpg, got %s", sortedPhotos[2].Name)
+	}
+}
