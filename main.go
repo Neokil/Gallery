@@ -105,8 +105,9 @@ func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		templates.ExecuteTemplate(w, "login.html", map[string]string{
-			"Title": siteTitle,
+		templates.ExecuteTemplate(w, "login.html", map[string]interface{}{
+			"Title":        siteTitle,
+			"CacheBreaker": time.Now().Unix(),
 		})
 		return
 	}
@@ -127,8 +128,9 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		templates.ExecuteTemplate(w, "login.html", map[string]interface{}{
-			"Title": siteTitle,
-			"Error": "Invalid password",
+			"Title":        siteTitle,
+			"Error":        "Invalid password",
+			"CacheBreaker": time.Now().Unix(),
 		})
 	}
 }
@@ -167,6 +169,7 @@ func galleryHandler(w http.ResponseWriter, r *http.Request) {
 		"SelectedUploader": uploaderFilter,
 		"TotalPhotos":      len(photos),
 		"FilteredPhotos":   len(filteredPhotos),
+		"CacheBreaker":     time.Now().Unix(),
 	})
 }
 
