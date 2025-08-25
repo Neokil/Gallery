@@ -83,9 +83,6 @@ type ServerInterface interface {
 	// Authenticate user
 	// (POST /login)
 	PostLogin(w http.ResponseWriter, r *http.Request)
-	// Logout user
-	// (GET /logout)
-	GetLogout(w http.ResponseWriter, r *http.Request)
 	// Serve static assets
 	// (GET /static/{filename})
 	ServeStatic(w http.ResponseWriter, r *http.Request, filename string)
@@ -122,12 +119,6 @@ func (_ Unimplemented) GetLogin(w http.ResponseWriter, r *http.Request) {
 // Authenticate user
 // (POST /login)
 func (_ Unimplemented) PostLogin(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Logout user
-// (GET /logout)
-func (_ Unimplemented) GetLogout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -259,20 +250,6 @@ func (siw *ServerInterfaceWrapper) PostLogin(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostLogin(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetLogout operation middleware
-func (siw *ServerInterfaceWrapper) GetLogout(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetLogout(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -484,9 +461,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/login", wrapper.PostLogin)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/logout", wrapper.GetLogout)
-	})
-	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/static/{filename}", wrapper.ServeStatic)
 	})
 	r.Group(func(r chi.Router) {
@@ -662,21 +636,6 @@ func (response PostLogin302Response) VisitPostLoginResponse(w http.ResponseWrite
 	return nil
 }
 
-type GetLogoutRequestObject struct {
-}
-
-type GetLogoutResponseObject interface {
-	VisitGetLogoutResponse(w http.ResponseWriter) error
-}
-
-type GetLogout302Response struct {
-}
-
-func (response GetLogout302Response) VisitGetLogoutResponse(w http.ResponseWriter) error {
-	w.WriteHeader(302)
-	return nil
-}
-
 type ServeStaticRequestObject struct {
 	Filename string `json:"filename"`
 }
@@ -811,9 +770,6 @@ type StrictServerInterface interface {
 	// Authenticate user
 	// (POST /login)
 	PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error)
-	// Logout user
-	// (GET /logout)
-	GetLogout(ctx context.Context, request GetLogoutRequestObject) (GetLogoutResponseObject, error)
 	// Serve static assets
 	// (GET /static/{filename})
 	ServeStatic(ctx context.Context, request ServeStaticRequestObject) (ServeStaticResponseObject, error)
@@ -965,30 +921,6 @@ func (sh *strictHandler) PostLogin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetLogout operation middleware
-func (sh *strictHandler) GetLogout(w http.ResponseWriter, r *http.Request) {
-	var request GetLogoutRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetLogout(ctx, request.(GetLogoutRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetLogout")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetLogoutResponseObject); ok {
-		if err := validResponse.VisitGetLogoutResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // ServeStatic operation middleware
 func (sh *strictHandler) ServeStatic(w http.ResponseWriter, r *http.Request, filename string) {
 	var request ServeStaticRequestObject
@@ -1075,27 +1007,26 @@ func (sh *strictHandler) ServePhoto(w http.ResponseWriter, r *http.Request, file
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+RXTW/bOBP+KwRPbaHE7hdQ+Ja2b4u8u1sEa/SyRbBgpLHFLcVhyVFcN/B/XwwpWbJk",
-	"O+7nZS9BbM73PPPM+E7mWDm0YCnI2Z0MkNde03qel1BB81UIGu1FTSV/LCDkXjvSaOVMztPj2Y0KUAhV",
-	"UwmWdK74WdRB26XIET9qCDKTmjXSR5lJqyqQM7lUxoBfnzVuZCZp7fhBOf0brOVms2HNBbLzHC2pnPjf",
-	"Rv2qRELxNhmRm2wQ34UIunIGhItyjTOhnDNtlCtN5TByZQux0AZE7QyqgoPSZEb+xMXVpczkLfiQ3D0+",
-	"n55POQp0YJXTciafnj8+n8pMOkVlrOeE/yyBxsV8rYMzai2oBFEpbbfhOrWEFGdMg2uJDnyM9bKQM/kW",
-	"qC0Be/KqAgIf5OzD0McbbQh8Y0fcrAXcgiURq9l06FOd7DQVjgIyk4EhoTjqpkGBvLZLudlk9zpJZQR/",
-	"zE8rc9TVdSY9BIc2JHA+mU5bXHCUrAGfaVJSZSJ2DxoaIeVtv9YebAEeChHqPIcQFrUxEV1Pp0/GffsT",
-	"Cu0hJ0EoDC61FXohLFIfVVCw+vMU7q76pSXwVhkRwN+CF+A9ei7rdhpjH3fm8MM1lyLUVaX8ehB9VJ0U",
-	"uLJc0DNlzGHENUJCGdO26wF6xj7F/NN3D4UKQom/Lq+E8nmpb2GEwNbShTFXLUb/20Dscczki3a7cFyg",
-	"rxTJmbzRVkXn9wKUqx85KZKgtsytDR1sMvls+njc3veWEYhef4FCPBgh8mFSfDZWfIdtzQhFi6Qk/Xws",
-	"/QdQiUVCvDG4+slY3wdaFRidCflxBE8i2TSs3It9jPp7tPPTCCeaP0o3m37WnTgX12HYk9uVR1bv5SVC",
-	"fVPpdrPupniFoZfjpxoCvcRifQTGn89Wq9UZ2z2rvQGbYwHFbtrOsxPSqVpOhbBCX4xD7QirkRhPQIpK",
-	"e3bxoTN1vZXEm38gp1TbTpR8DZtf0bW4kCOARQUhNJ25d0O0Sx1t226BXtyo/GO3P9CKhdKm9jBAwUVv",
-	"fkUdwG8hjzUdxPwrA8oPb5xmxuKt44cb7MA8sJNBaU/ciNvFtINorKmXRSBFOp/cMcsxF28OJjRn9hBJ",
-	"XryazzPx/3kWM0EqwQsVAtD4TIpq86h133p6pyoQuIg00fjhsNqVwddctzHagOUQh9+3QR5NHn331pj3",
-	"Yj/E9m94qzB7L7C2xaBLO6Vu6hq71ZzGPOV7yeh9fBdogfFdoW+PcI4lpOmpgFShSI06lZS3l8Rheqpq",
-	"Q9opT5NIS9HYEUKKN8TfqW3DgP+3PUCYOgX6pbL6S2/NjsqdyeZlzMS9TAm7nxGaoAontbL7HeS9irdn",
-	"e5ccCL+PWAc+8A+wqHEsgyHJJrFvodiTeU8t+CTrNl1bnIjOPSfDS8X8FPvPN0xT1KYY7Q3zzcfPiefM",
-	"Vx0oDfLb46wblnA6tykRHOR6ofNtqr3xEQ+aZoQBqz/cz3kRjl9DeZ2rX8p4ulJL+AGs143fj7+Nk+0B",
-	"XZ6MjdTd3ZamDNJFvK8xr+EWDLqK6SlJyUzW3siZLIncbDIxmCtTYqDZi+mLqdxcb/4NAAD//5tvvAHZ",
-	"EQAA",
+	"H4sIAAAAAAAC/+RXS48aORD+K5ZPSdQM5CVF3CabTTT7iNCiXHY0WpnugvbG7XLs6iHMiP++KrubBhoY",
+	"8rzsZTRg18NfffVVcS9zrBxasBTk+F4GyGuvaTXNS6ig+SoEjfayppI/FhByrx1ptHIsp+lwMFMBCqFq",
+	"KsGSzhUfizpouxA54kcNQWZSs0X6KDNpVQVyLBfKGPCrQRNGZpJWjg+U07/DSq7Xa7acIwfP0ZLKif9t",
+	"zCclEop3yYlcZ3v5XYqgK2dAuHivCSaUc6bNcqmp3M9c2ULMtQFRO4Oq4KQ0mV48cTm5kpm8BR9SuKcX",
+	"o4sRZ4EOrHJajuXzi6cXI5lJp6iMeA75zwKoD+YbHZxRK0EliEppu0nXqQWkPOMzGEt04GOuV4Ucy3dA",
+	"LQQcyasKCHyQ4+v9GG+1IfCNHzFbCbgFSyKi2VToU538NAjHCzKTgSmhOOumQIG8tgu5XmcPBkkwgj8V",
+	"p71zMtRNJj0EhzYkcj4bjVpecJZsAZ9pWFJlInePOuox5d021h5sAR4KEeo8hxDmtTGRXc9Hz/p1+wsK",
+	"7SEnQSgMLrQVei4s0jaroGDzlyndXfMrS+CtMiKAvwUvwHv0DOumG2Mdd/rw+oahCHVVKb/ayz6aDgtc",
+	"WgZ0oIw5zrjmklDGtOV6hJ65T/H96bvHQgWhxN9XE6F8Xupb6DGw9XRpzKTl6P+biFsaM7zTbpeOc/SV",
+	"IjmWM21VDP4gQRn9qElRBLVlbW3kYJ3JF6On/fJ+sMxA9PoOCvGox8jHyfBF3/A9tpgRipZJ6fbL/u0/",
+	"gUosEuONweUP5voh0qrA7EzMjy14lsimZuVaHFLUP6KfHyY40f1JudlFZQeDzpihdhgOvHTikZ1tvVKE",
+	"elbpds7uPniCYevFn2oI9BqL1QlSfx4sl8sB+x3U3oDNsYBiFwTnOQjphJ1TISzRF/1UO/lqbvT7IWWl",
+	"PYe47lzdbG7i7F/IKSHdXSVfw/pn1DCO50hnUUEITWUenBftiEfbFl+gFzOVf+ymCVoxV9rUHk5y4nKr",
+	"t0UdIPXVMJAinQ/vWTtY4dZHW2PKPSnSffHLdJqJ36ZZ3IWQSvBChQDUXz6i2TRaPST671UFAuex+Zo4",
+	"nFYrxLwjdTrcJiz36/ltuvxk+OSbtXi6lfsxDX3LWs2aOMfaFqlym1rtQN3gGqvVLJzcLQeb+kM8F2iB",
+	"eVKhb1dbziUkFlZAqlCkepVKxpv5fLzNq9qQdsrTMLZ3dHaiseNk/ieVbT/hXzdjnSVIoF8oq++2hlcP",
+	"7kw2J31F23opYbeca4IqnFXK7teF9ypudO20P5L+NmMd+MA/a6LFqRfsi1W69jVSdbZ+qDkvOt38aMGJ",
+	"7DwwiF+rQjT1582gAbUBo90MvnqlOHNJ+KKx3zC/XXm6Zgnna5sSwUGu5zrfPHWrfcSjphhh7/fg48Oa",
+	"F+n4JZLXhfqpiqcrtYDvoHpd+33/jTP53pPLs7mRqrtb0vSCtGceKswbuAWDrmJ5SrdkJmtv5FiWRG48",
+	"HBrMlSkx0PjV6NVIrm/W/wUAAP//SA/kgi8RAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

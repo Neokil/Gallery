@@ -113,12 +113,6 @@ func (h *Handlers) HandlePostLogin(w http.ResponseWriter, r *http.Request) {
 	h.templates.ExecuteTemplate(w, "login.html", data)
 }
 
-// HandleLogout implements the logout handler
-func (h *Handlers) HandleLogout(w http.ResponseWriter, r *http.Request) {
-	h.authService.Logout(w, r)
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
-}
-
 // HandleUpload implements the photo upload handler
 func (h *Handlers) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	// Check authentication

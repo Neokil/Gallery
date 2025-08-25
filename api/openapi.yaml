@@ -83,15 +83,6 @@ paths:
               schema:
                 type: string
 
-  /logout:
-    get:
-      summary: Logout user
-      description: Clear authentication session and redirect to login
-      operationId: getLogout
-      responses:
-        "302":
-          description: Redirect to login page
-
   /upload:
     post:
       summary: Upload photos

@@ -44,7 +44,6 @@ The application has been refactored to use a clean architecture with the followi
 - `GET /` - Gallery page with photo grid and filters
 - `GET /login` - Login page
 - `POST /login` - Authentication
-- `GET /logout` - Logout and clear session
 - `POST /upload` - Upload photos with metadata
 - `GET /download-all` - Download photos as ZIP (supports filtering)
 - `GET /uploads/{filename}` - Serve uploaded photos
