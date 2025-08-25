@@ -9,6 +9,7 @@ services:
       - GALLERY_PASSWORD=pwd
       - SITE_TITLE=My Event Photos
       - PORT=8080
+      - SESSION_KEY=your-secret-session-key-change-this-in-production
     volumes:
       - ./uploads:/root/uploads
       - ./metadata:/root/metadata

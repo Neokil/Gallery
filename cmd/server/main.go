@@ -21,6 +21,7 @@ func main() {
 	// Environment variables
 	siteTitle := getEnv("SITE_TITLE", "Photo Gallery")
 	password := getEnv("GALLERY_PASSWORD", "")
+	sessionKey := getEnv("SESSION_KEY", "")
 	uploadDir := getEnv("UPLOAD_DIR", "./uploads")
 	metadataDir := getEnv("METADATA_DIR", "./metadata")
 	port := getEnv("PORT", "8080")
@@ -39,7 +40,7 @@ func main() {
 
 	// Initialize services
 	galleryService := service.NewGalleryService(uploadDir, metadataDir)
-	authService := service.NewAuthService(password)
+	authService := service.NewAuthService(password, sessionKey)
 
 	// Clean up orphaned metadata files
 	galleryService.CleanupOrphanedMetadata()

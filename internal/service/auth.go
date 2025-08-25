@@ -18,15 +18,37 @@ type AuthService struct {
 	Password string
 }
 
-func NewAuthService(password string) *AuthService {
+func NewAuthService(password, sessionKey string) *AuthService {
+	// Use provided session key or generate one if empty
+	key := sessionKey
+	if key == "" {
+		key = generateSecretKey()
+	}
+
+	store := sessions.NewCookieStore([]byte(key))
+	// Configure session options for better compatibility
+	store.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   86400 * 7, // 7 days
+		HttpOnly: true,
+		Secure:   false, // Set to true if using HTTPS
+		SameSite: http.SameSiteLaxMode,
+		Domain:   "", // Empty domain works better with IP addresses
+	}
+
 	return &AuthService{
-		store:    sessions.NewCookieStore([]byte(generateSecretKey())),
+		store:    store,
 		Password: password,
 	}
 }
 
 func (a *AuthService) IsAuthenticated(r *http.Request) bool {
-	session, _ := a.store.Get(r, "gallery-session")
+	session, err := a.store.Get(r, "gallery-session")
+	if err != nil {
+		// Log session retrieval errors for debugging
+		return false
+	}
+
 	if auth, ok := session.Values["authenticated"].(bool); ok && auth {
 		return true
 	}
@@ -38,7 +60,11 @@ func (a *AuthService) Login(w http.ResponseWriter, r *http.Request, password str
 		return false
 	}
 
-	session, _ := a.store.Get(r, "gallery-session")
+	session, err := a.store.Get(r, "gallery-session")
+	if err != nil {
+		return false
+	}
+
 	session.Values["authenticated"] = true
 	if err := session.Save(r, w); err != nil {
 		return false
