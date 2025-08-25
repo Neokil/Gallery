@@ -62,41 +62,8 @@ The application has been refactored to use a clean architecture with the followi
 
 ### Prerequisites
 
-- Go 1.21+
+- Go 1.24+
 - oapi-codegen v2
-
-### Setup
-
-1. Install oapi-codegen:
-```bash
-go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
-```
-
-2. Generate API code:
-```bash
-make generate
-```
-
-3. Build and run:
-```bash
-make build
-make run
-```
-
-Or run directly:
-```bash
-GALLERY_PASSWORD=mypassword go run ./cmd/server
-```
-
-### Available Make Commands
-
-- `make generate` - Generate server code from OpenAPI spec
-- `make build` - Build the application
-- `make run` - Generate code and run the application
-- `make clean` - Clean generated files
-- `make deps` - Install dependencies
-- `make fmt` - Format code
-- `make test` - Run tests
 
 ## Technology Stack
 
@@ -118,12 +85,14 @@ GALLERY_PASSWORD=mypassword go run ./cmd/server
 ## OpenAPI Integration
 
 The application uses OpenAPI 3.0 specification to:
+
 - Define API contracts
 - Generate type-safe server code
 - Ensure consistent request/response handling
 - Enable API documentation and tooling
 
 The generated code provides:
+
 - Request/response type definitions
 - Parameter validation
 - Route handling with Chi router

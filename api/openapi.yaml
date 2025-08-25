@@ -1,11 +1,11 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: Photo Gallery API
   description: A simple photo gallery application with authentication and file upload
   version: 1.0.0
   contact:
     name: Photo Gallery
-    
+
 servers:
   - url: http://localhost:8080
     description: Development server
@@ -32,15 +32,15 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Gallery page rendered successfully
           content:
             text/html:
               schema:
                 type: string
-        '302':
+        "302":
           description: Redirect to login if not authenticated
-        '500':
+        "500":
           description: Internal server error
 
   /login:
@@ -48,8 +48,9 @@ paths:
       summary: Login page
       description: Display the login form
       operationId: getLogin
+      security: []  # No authentication required
       responses:
-        '200':
+        "200":
           description: Login page rendered successfully
           content:
             text/html:
@@ -59,6 +60,7 @@ paths:
       summary: Authenticate user
       description: Process login form submission
       operationId: postLogin
+      security: []  # No authentication required
       requestBody:
         required: true
         content:
@@ -72,9 +74,9 @@ paths:
               required:
                 - password
       responses:
-        '302':
+        "302":
           description: Redirect to gallery on success or back to login on failure
-        '200':
+        "200":
           description: Login page with error message
           content:
             text/html:
@@ -87,7 +89,7 @@ paths:
       description: Clear authentication session and redirect to login
       operationId: getLogout
       responses:
-        '302':
+        "302":
           description: Redirect to login page
 
   /upload:
@@ -119,13 +121,13 @@ paths:
               required:
                 - photos
       responses:
-        '302':
+        "302":
           description: Redirect to gallery after successful upload
-        '400':
+        "400":
           description: Bad request (no files uploaded)
-        '401':
+        "401":
           description: Unauthorized (not authenticated)
-        '405':
+        "405":
           description: Method not allowed
 
   /download-all:
@@ -149,20 +151,20 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: ZIP file containing photos
           content:
             application/zip:
               schema:
                 type: string
                 format: binary
-        '401':
+        "401":
           description: Unauthorized (not authenticated)
-        '404':
+        "404":
           description: No photos to download
-        '405':
+        "405":
           description: Method not allowed
-        '500':
+        "500":
           description: Internal server error
 
   /uploads/{filename}:
@@ -180,16 +182,16 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Photo file
           content:
             image/*:
               schema:
                 type: string
                 format: binary
-        '401':
+        "401":
           description: Unauthorized (not authenticated)
-        '404':
+        "404":
           description: Photo not found
 
   /static/{filename}:
@@ -205,14 +207,14 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Static file
           content:
-            '*/*':
+            "*/*":
               schema:
                 type: string
                 format: binary
-        '404':
+        "404":
           description: File not found
 
 components:
@@ -256,7 +258,7 @@ components:
         photos:
           type: array
           items:
-            $ref: '#/components/schemas/PhotoInfo'
+            $ref: "#/components/schemas/PhotoInfo"
           description: List of photos to display
         allEvents:
           type: array
@@ -303,5 +305,4 @@ components:
       in: cookie
       name: gallery-session
       description: Session-based authentication using cookies
-
 # Security is applied per endpoint as needed
