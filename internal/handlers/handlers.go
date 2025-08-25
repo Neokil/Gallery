@@ -221,6 +221,12 @@ func (h *Handlers) HandleDownloadAll(w http.ResponseWriter, r *http.Request, par
 
 // HandleServePhoto implements the photo serving handler
 func (h *Handlers) HandleServePhoto(w http.ResponseWriter, r *http.Request, filename string) {
+	// Check authentication before serving photos
+	if !h.authService.IsAuthenticated(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	filePath, err := h.galleryService.ServePhoto(filename)
 	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)

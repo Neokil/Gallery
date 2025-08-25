@@ -16,6 +16,8 @@ paths:
       summary: Gallery page
       description: Display the main gallery page with photos
       operationId: getGallery
+      security:
+        - sessionAuth: []
       parameters:
         - name: event
           in: query
@@ -93,6 +95,8 @@ paths:
       summary: Upload photos
       description: Upload one or more photo files with metadata
       operationId: uploadPhotos
+      security:
+        - sessionAuth: []
       requestBody:
         required: true
         content:
@@ -129,6 +133,8 @@ paths:
       summary: Download all photos as ZIP
       description: Download all photos (or filtered photos) as a ZIP archive
       operationId: downloadAllPhotos
+      security:
+        - sessionAuth: []
       parameters:
         - name: event
           in: query
@@ -162,8 +168,10 @@ paths:
   /uploads/{filename}:
     get:
       summary: Serve uploaded photo
-      description: Serve a specific uploaded photo file
+      description: Serve a specific uploaded photo file (requires authentication)
       operationId: servePhoto
+      security:
+        - sessionAuth: []
       parameters:
         - name: filename
           in: path
@@ -179,6 +187,8 @@ paths:
               schema:
                 type: string
                 format: binary
+        '401':
+          description: Unauthorized (not authenticated)
         '404':
           description: Photo not found
 
@@ -294,5 +304,4 @@ components:
       name: gallery-session
       description: Session-based authentication using cookies
 
-security:
-  - sessionAuth: []
+# Security is applied per endpoint as needed

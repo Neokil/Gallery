@@ -243,12 +243,6 @@ func (siw *ServerInterfaceWrapper) DownloadAllPhotos(w http.ResponseWriter, r *h
 // GetLogin operation middleware
 func (siw *ServerInterfaceWrapper) GetLogin(w http.ResponseWriter, r *http.Request) {
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, SessionAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetLogin(w, r)
 	}))
@@ -263,12 +257,6 @@ func (siw *ServerInterfaceWrapper) GetLogin(w http.ResponseWriter, r *http.Reque
 // PostLogin operation middleware
 func (siw *ServerInterfaceWrapper) PostLogin(w http.ResponseWriter, r *http.Request) {
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, SessionAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostLogin(w, r)
 	}))
@@ -282,12 +270,6 @@ func (siw *ServerInterfaceWrapper) PostLogin(w http.ResponseWriter, r *http.Requ
 
 // GetLogout operation middleware
 func (siw *ServerInterfaceWrapper) GetLogout(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, SessionAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetLogout(w, r)
@@ -313,12 +295,6 @@ func (siw *ServerInterfaceWrapper) ServeStatic(w http.ResponseWriter, r *http.Re
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
 		return
 	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, SessionAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ServeStatic(w, r, filename)
@@ -805,6 +781,14 @@ func (response ServePhoto200ImageResponse) VisitServePhotoResponse(w http.Respon
 	return err
 }
 
+type ServePhoto401Response struct {
+}
+
+func (response ServePhoto401Response) VisitServePhotoResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
 type ServePhoto404Response struct {
 }
 
@@ -1091,26 +1075,27 @@ func (sh *strictHandler) ServePhoto(w http.ResponseWriter, r *http.Request, file
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"EQAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
