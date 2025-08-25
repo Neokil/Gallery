@@ -101,10 +101,6 @@ func (s *ServerWrapper) PostLogin(w http.ResponseWriter, r *http.Request) {
 	s.handlers.HandlePostLogin(w, r)
 }
 
-func (s *ServerWrapper) GetLogout(w http.ResponseWriter, r *http.Request) {
-	s.handlers.HandleLogout(w, r)
-}
-
 func (s *ServerWrapper) UploadPhotos(w http.ResponseWriter, r *http.Request) {
 	s.handlers.HandleUpload(w, r)
 }
