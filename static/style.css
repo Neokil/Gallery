@@ -151,6 +151,36 @@ main {
     font-weight: 600;
 }
 
+.download-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e1e8ed;
+    text-align: center;
+}
+
+.download-section .download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #27ae60;
+    text-decoration: none;
+    padding: 10px 20px;
+    border: 1px solid #27ae60;
+    border-radius: 6px;
+    transition: all 0.3s;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.download-section .download-btn:hover {
+    background: #27ae60;
+    color: white;
+}
+
+.download-section .download-btn svg {
+    flex-shrink: 0;
+}
+
 .filter-controls {
     display: flex;
     gap: 20px;

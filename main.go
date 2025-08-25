@@ -415,28 +415,41 @@ func downloadAllHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files, err := os.ReadDir(uploadDir)
+	// Get filter parameters from query string
+	eventFilter := r.URL.Query().Get("event")
+	uploaderFilter := r.URL.Query().Get("uploader")
+
+	// Get all photos and apply filters
+	photos, err := getPhotos()
 	if err != nil {
-		http.Error(w, "Failed to read upload directory", http.StatusInternalServerError)
+		http.Error(w, "Failed to load photos", http.StatusInternalServerError)
 		return
 	}
 
-	// Filter for image files
-	var imageFiles []os.DirEntry
-	for _, file := range files {
-		if !file.IsDir() && isImageFile(file.Name()) {
-			imageFiles = append(imageFiles, file)
-		}
-	}
+	// Apply filters to get only the photos that match current filter
+	filteredPhotos := filterPhotos(photos, eventFilter, uploaderFilter)
 
-	if len(imageFiles) == 0 {
+	if len(filteredPhotos) == 0 {
 		http.Error(w, "No photos to download", http.StatusNotFound)
 		return
 	}
 
 	// Set headers for zip download
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	filename := fmt.Sprintf("gallery_photos_%s.zip", timestamp)
+	var filename string
+	if eventFilter != "" || uploaderFilter != "" {
+		filterSuffix := ""
+		if eventFilter != "" {
+			filterSuffix += "_" + strings.ReplaceAll(eventFilter, " ", "_")
+		}
+		if uploaderFilter != "" {
+			filterSuffix += "_" + strings.ReplaceAll(uploaderFilter, " ", "_")
+		}
+		filename = fmt.Sprintf("gallery_photos%s_%s.zip", filterSuffix, timestamp)
+	} else {
+		filename = fmt.Sprintf("gallery_photos_%s.zip", timestamp)
+	}
+
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 
@@ -444,21 +457,23 @@ func downloadAllHandler(w http.ResponseWriter, r *http.Request) {
 	zipWriter := zip.NewWriter(w)
 	defer zipWriter.Close()
 
-	// Add each image to the zip
-	for _, file := range imageFiles {
-		filePath := filepath.Join(uploadDir, file.Name())
+	// Add each filtered photo to the zip
+	for _, photo := range filteredPhotos {
+		// Extract filename from path (remove /uploads/ prefix)
+		filename := filepath.Base(photo.Path)
+		filePath := filepath.Join(uploadDir, filename)
 
 		// Open the file
 		fileReader, err := os.Open(filePath)
 		if err != nil {
-			log.Printf("Failed to open file %s: %v", file.Name(), err)
+			log.Printf("Failed to open file %s: %v", filename, err)
 			continue
 		}
 
 		// Create a file in the zip
-		zipFile, err := zipWriter.Create(file.Name())
+		zipFile, err := zipWriter.Create(filename)
 		if err != nil {
-			log.Printf("Failed to create zip entry for %s: %v", file.Name(), err)
+			log.Printf("Failed to create zip entry for %s: %v", filename, err)
 			fileReader.Close()
 			continue
 		}
@@ -466,7 +481,7 @@ func downloadAllHandler(w http.ResponseWriter, r *http.Request) {
 		// Copy file content to zip
 		_, err = io.Copy(zipFile, fileReader)
 		if err != nil {
-			log.Printf("Failed to copy file %s to zip: %v", file.Name(), err)
+			log.Printf("Failed to copy file %s to zip: %v", filename, err)
 		}
 
 		fileReader.Close()
