@@ -1,4 +1,4 @@
-module photo-gallery
+module github.com/Neokil/Gallery
 
 go 1.24
 

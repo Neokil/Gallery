@@ -4,7 +4,7 @@ package middleware
 import (
 	"net/http"
 
-	"photo-gallery/internal/service"
+	"github.com/Neokil/Gallery/internal/service"
 )
 
 func AuthMiddleware(authService *service.AuthService) func(http.Handler) http.Handler {

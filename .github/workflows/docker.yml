@@ -5,7 +5,7 @@ on:
     branches: [ main ]
 
 env:
-  IMAGE_NAME: our-gallery
+  IMAGE_NAME: gallery
 
 jobs:
   build-and-push:
@@ -17,7 +17,7 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
+
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
 
@@ -35,4 +35,4 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         push: true
-        tags: out-gallery:latest
+        tags: gallery:latest

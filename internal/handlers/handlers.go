@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"photo-gallery/internal/api"
-	"photo-gallery/internal/service"
+	"github.com/Neokil/Gallery/internal/api"
+	"github.com/Neokil/Gallery/internal/service"
 )
 
 const (
