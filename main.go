@@ -48,6 +48,9 @@ func main() {
 		log.Fatal("Failed to create metadata directory:", err)
 	}
 
+	// Clean up orphaned metadata files
+	cleanupOrphanedMetadata()
+
 	// Parse templates
 	var err error
 	templates, err = template.ParseGlob("templates/*.html")
@@ -467,5 +470,41 @@ func downloadAllHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		fileReader.Close()
+	}
+}
+
+func cleanupOrphanedMetadata() {
+	// Read all metadata files
+	metadataFiles, err := os.ReadDir(metadataDir)
+	if err != nil {
+		log.Printf("Failed to read metadata directory: %v", err)
+		return
+	}
+
+	removedCount := 0
+	for _, metadataFile := range metadataFiles {
+		if metadataFile.IsDir() || !strings.HasSuffix(metadataFile.Name(), ".json") {
+			continue
+		}
+
+		// Extract the image filename from metadata filename (remove .json extension)
+		imageFilename := strings.TrimSuffix(metadataFile.Name(), ".json")
+		imagePath := filepath.Join(uploadDir, imageFilename)
+
+		// Check if the corresponding image file exists
+		if _, err := os.Stat(imagePath); os.IsNotExist(err) {
+			// Image doesn't exist, remove the orphaned metadata file
+			metadataPath := filepath.Join(metadataDir, metadataFile.Name())
+			if err := os.Remove(metadataPath); err != nil {
+				log.Printf("Failed to remove orphaned metadata file %s: %v", metadataFile.Name(), err)
+			} else {
+				log.Printf("Removed orphaned metadata file: %s", metadataFile.Name())
+				removedCount++
+			}
+		}
+	}
+
+	if removedCount > 0 {
+		log.Printf("Cleanup complete: removed %d orphaned metadata files", removedCount)
 	}
 }
