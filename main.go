@@ -141,15 +141,32 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func galleryHandler(w http.ResponseWriter, r *http.Request) {
+	// Get filter parameters from query string
+	eventFilter := r.URL.Query().Get("event")
+	uploaderFilter := r.URL.Query().Get("uploader")
+
 	photos, err := getPhotos()
 	if err != nil {
 		http.Error(w, "Failed to load photos", http.StatusInternalServerError)
 		return
 	}
 
+	// Apply filters
+	filteredPhotos := filterPhotos(photos, eventFilter, uploaderFilter)
+
+	// Get unique events and uploaders for filter dropdowns
+	events := getUniqueEvents(photos)
+	uploaders := getUniqueUploaders(photos)
+
 	templates.ExecuteTemplate(w, "gallery.html", map[string]interface{}{
-		"Title":  siteTitle,
-		"Photos": photos,
+		"Title":            siteTitle,
+		"Photos":           filteredPhotos,
+		"AllEvents":        events,
+		"AllUploaders":     uploaders,
+		"SelectedEvent":    eventFilter,
+		"SelectedUploader": uploaderFilter,
+		"TotalPhotos":      len(photos),
+		"FilteredPhotos":   len(filteredPhotos),
 	})
 }
 
@@ -328,6 +345,72 @@ func loadPhotoMetadata(filename string) PhotoInfo {
 	}
 
 	return info
+}
+
+func filterPhotos(photos []PhotoInfo, eventFilter, uploaderFilter string) []PhotoInfo {
+	var filtered []PhotoInfo
+
+	for _, photo := range photos {
+		// Check event filter
+		if eventFilter != "" && photo.Event != eventFilter {
+			continue
+		}
+
+		// Check uploader filter
+		if uploaderFilter != "" && photo.Uploader != uploaderFilter {
+			continue
+		}
+
+		filtered = append(filtered, photo)
+	}
+
+	return filtered
+}
+
+func getUniqueEvents(photos []PhotoInfo) []string {
+	eventSet := make(map[string]bool)
+	var events []string
+
+	for _, photo := range photos {
+		if photo.Event != "" && !eventSet[photo.Event] {
+			eventSet[photo.Event] = true
+			events = append(events, photo.Event)
+		}
+	}
+
+	// Sort events alphabetically
+	for i := 0; i < len(events)-1; i++ {
+		for j := i + 1; j < len(events); j++ {
+			if events[i] > events[j] {
+				events[i], events[j] = events[j], events[i]
+			}
+		}
+	}
+
+	return events
+}
+
+func getUniqueUploaders(photos []PhotoInfo) []string {
+	uploaderSet := make(map[string]bool)
+	var uploaders []string
+
+	for _, photo := range photos {
+		if photo.Uploader != "" && !uploaderSet[photo.Uploader] {
+			uploaderSet[photo.Uploader] = true
+			uploaders = append(uploaders, photo.Uploader)
+		}
+	}
+
+	// Sort uploaders alphabetically
+	for i := 0; i < len(uploaders)-1; i++ {
+		for j := i + 1; j < len(uploaders); j++ {
+			if uploaders[i] > uploaders[j] {
+				uploaders[i], uploaders[j] = uploaders[j], uploaders[i]
+			}
+		}
+	}
+
+	return uploaders
 }
 
 func downloadAllHandler(w http.ResponseWriter, r *http.Request) {

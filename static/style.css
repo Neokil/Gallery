@@ -126,6 +126,111 @@ main {
     padding: 40px 20px;
 }
 
+/* Filter Section */
+.filter-section {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e1e8ed;
+}
+
+.filter-header h3 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 18px;
+}
+
+.photo-count {
+    font-size: 14px;
+    color: #666;
+    font-weight: 500;
+}
+
+.filtered-count {
+    color: #27ae60;
+    font-weight: 600;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 20px;
+    align-items: end;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+}
+
+.filter-group label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #2c3e50;
+    margin-bottom: 6px;
+}
+
+.filter-group select {
+    padding: 8px 16px;
+    border: 1px solid #27ae60;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+    color: #27ae60;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.filter-group select:focus {
+    outline: none;
+    background: #27ae60;
+    color: white;
+}
+
+.filter-group select:hover {
+    background: #27ae60;
+    color: white;
+}
+
+.clear-filters-btn {
+    background: #95a5a6;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+    height: fit-content;
+}
+
+.clear-filters-btn:hover {
+    background: #7f8c8d;
+}
+
+.filter-results {
+    padding-top: 15px;
+    border-top: 1px solid #e1e8ed;
+}
+
+#photo-count {
+    font-size: 14px;
+    color: #666;
+    font-weight: 500;
+}
+
 /* Upload Section */
 .upload-section {
     margin-bottom: 40px;
@@ -468,6 +573,26 @@ main {
     
     main {
         padding: 20px 15px;
+    }
+    
+    .filter-controls {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+    
+    .filter-group {
+        min-width: auto;
+    }
+    
+    .clear-filters-btn {
+        align-self: flex-start;
+    }
+    
+    .filter-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
     }
     
     .upload-area {
