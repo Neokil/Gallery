@@ -1,118 +1,130 @@
 # Photo Gallery
 
-A simple, password-protected photo sharing website built in Go. Perfect for sharing event photos with guests.
+A simple photo gallery application built with Go, using OpenAPI specification and oapi-codegen for API generation.
+
+## Architecture
+
+The application has been refactored to use a clean architecture with the following structure:
+
+```
+├── api/
+│   ├── openapi.yaml          # OpenAPI 3.0 specification
+│   └── server-config.yaml    # oapi-codegen configuration
+├── cmd/
+│   └── server/
+│       └── main.go           # Application entry point
+├── internal/
+│   ├── api/
+│   │   └── generated.go      # Generated API code from OpenAPI spec
+│   ├── handlers/
+│   │   └── handlers.go       # HTTP handlers implementing the API
+│   ├── middleware/
+│   │   └── auth.go           # Authentication middleware
+│   └── service/
+│       ├── auth.go           # Authentication service
+│       └── gallery.go        # Gallery business logic
+├── static/                   # Static assets (CSS, JS, images)
+├── templates/                # HTML templates
+└── uploads/                  # Uploaded photos (created at runtime)
+```
 
 ## Features
 
-- **Password Protection**: Single shared password for all users
-- **Photo Upload**: Drag-and-drop or click to upload multiple photos
-- **Gallery View**: Grid layout with click-to-expand modal
-- **Mobile Responsive**: Works great on desktop and mobile
-- **Secure**: Session-based auth with security headers
-- **Lightweight**: Minimal dependencies, fast performance
+- **OpenAPI-driven development**: API specification defines the contract
+- **Generated server code**: Uses oapi-codegen with Chi router and strict settings
+- **Session-based authentication**: Secure login with password protection
+- **Photo upload**: Multi-file upload with metadata (uploader name, event)
+- **Photo filtering**: Filter by event or uploader
+- **Bulk download**: Download all or filtered photos as ZIP
+- **Responsive design**: Works on desktop and mobile
+- **Dark mode support**: Automatic based on system preference
 
-## Quick Start
+## API Endpoints
 
-### Local Development
+- `GET /` - Gallery page with photo grid and filters
+- `GET /login` - Login page
+- `POST /login` - Authentication
+- `GET /logout` - Logout and clear session
+- `POST /upload` - Upload photos with metadata
+- `GET /download-all` - Download photos as ZIP (supports filtering)
+- `GET /uploads/{filename}` - Serve uploaded photos
+- `GET /static/{filename}` - Serve static assets
 
-1. **Clone and setup**:
-   ```bash
-   git clone <your-repo>
-   cd photo-gallery
-   ```
+## Environment Variables
 
-2. **Set environment variables**:
-   ```bash
-   export GALLERY_PASSWORD="your-secret-password"
-   export SITE_TITLE="My Event Photos"  # Optional
-   ```
+- `GALLERY_PASSWORD` - Required. Password for accessing the gallery
+- `SITE_TITLE` - Optional. Title displayed on pages (default: "Photo Gallery")
+- `UPLOAD_DIR` - Optional. Directory for uploaded photos (default: "./uploads")
+- `METADATA_DIR` - Optional. Directory for photo metadata (default: "./metadata")
+- `PORT` - Optional. Server port (default: "8080")
 
-3. **Run the application**:
-   ```bash
-   go mod tidy
-   go run main.go
-   ```
+## Development
 
-4. **Access the gallery**:
-   Open http://localhost:8080 and enter your password.
+### Prerequisites
 
-### Docker Deployment
+- Go 1.21+
+- oapi-codegen v2
 
-1. **Using Docker Compose** (recommended):
-   ```bash
-   # Edit docker-compose.yml to set your password
-   docker-compose up -d
-   ```
+### Setup
 
-2. **Using Docker directly**:
-   ```bash
-   docker build -t photo-gallery .
-   docker run -p 8080:8080 \
-     -e GALLERY_PASSWORD="your-secret-password" \
-     -e SITE_TITLE="My Event Photos" \
-     -v $(pwd)/uploads:/root/uploads \
-     photo-gallery
-   ```
-
-## Configuration
-
-Set these environment variables:
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `GALLERY_PASSWORD` | ✅ | - | Password to access the gallery |
-| `SITE_TITLE` | ❌ | "Photo Gallery" | Title shown on the website |
-| `UPLOAD_DIR` | ❌ | "./uploads" | Directory to store uploaded photos |
-| `PORT` | ❌ | "8080" | Server port |
-
-## Security
-
-- Password-protected with secure sessions
-- Security headers (XSS protection, content type sniffing, etc.)
-- File type validation (only images allowed)
-- Should be deployed behind HTTPS in production
-
-## Production Deployment
-
-1. **Use HTTPS**: Deploy behind a reverse proxy (nginx, Caddy, or cloud load balancer)
-2. **Set strong password**: Use a long, random password
-3. **Backup uploads**: The `uploads` directory contains all photos
-4. **Monitor disk space**: Photos are stored on disk
-
-### Example nginx config:
-```nginx
-server {
-    listen 443 ssl;
-    server_name your-domain.com;
-    
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-    
-    location / {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
+1. Install oapi-codegen:
+```bash
+go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 ```
 
-## File Structure
-
-```
-photo-gallery/
-├── main.go              # Main application
-├── templates/           # HTML templates
-│   ├── login.html
-│   └── gallery.html
-├── static/              # CSS and JavaScript
-│   ├── style.css
-│   └── script.js
-├── uploads/             # Uploaded photos (created automatically)
-├── Dockerfile           # Docker build file
-├── docker-compose.yml   # Docker Compose config
-└── README.md           # This file
+2. Generate API code:
+```bash
+make generate
 ```
 
-## License
+3. Build and run:
+```bash
+make build
+make run
+```
 
-MIT License - feel free to use for your events!
+Or run directly:
+```bash
+GALLERY_PASSWORD=mypassword go run ./cmd/server
+```
+
+### Available Make Commands
+
+- `make generate` - Generate server code from OpenAPI spec
+- `make build` - Build the application
+- `make run` - Generate code and run the application
+- `make clean` - Clean generated files
+- `make deps` - Install dependencies
+- `make fmt` - Format code
+- `make test` - Run tests
+
+## Technology Stack
+
+- **Backend**: Go with Chi router
+- **API Generation**: oapi-codegen with strict server settings
+- **Authentication**: Gorilla Sessions
+- **Frontend**: Vanilla HTML/CSS/JavaScript
+- **File Upload**: Multipart form handling
+- **Archive**: ZIP file generation for bulk downloads
+
+## Security Features
+
+- Session-based authentication
+- CSRF protection via session validation
+- Secure headers (X-Frame-Options, X-Content-Type-Options, etc.)
+- File type validation for uploads
+- Path traversal protection
+
+## OpenAPI Integration
+
+The application uses OpenAPI 3.0 specification to:
+- Define API contracts
+- Generate type-safe server code
+- Ensure consistent request/response handling
+- Enable API documentation and tooling
+
+The generated code provides:
+- Request/response type definitions
+- Parameter validation
+- Route handling with Chi router
+- Strict server interface for type safety

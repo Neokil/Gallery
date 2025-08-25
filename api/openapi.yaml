@@ -1,0 +1,298 @@
+openapi: 3.0.3
+info:
+  title: Photo Gallery API
+  description: A simple photo gallery application with authentication and file upload
+  version: 1.0.0
+  contact:
+    name: Photo Gallery
+    
+servers:
+  - url: http://localhost:8080
+    description: Development server
+
+paths:
+  /:
+    get:
+      summary: Gallery page
+      description: Display the main gallery page with photos
+      operationId: getGallery
+      parameters:
+        - name: event
+          in: query
+          description: Filter photos by event name
+          required: false
+          schema:
+            type: string
+        - name: uploader
+          in: query
+          description: Filter photos by uploader name
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Gallery page rendered successfully
+          content:
+            text/html:
+              schema:
+                type: string
+        '302':
+          description: Redirect to login if not authenticated
+        '500':
+          description: Internal server error
+
+  /login:
+    get:
+      summary: Login page
+      description: Display the login form
+      operationId: getLogin
+      responses:
+        '200':
+          description: Login page rendered successfully
+          content:
+            text/html:
+              schema:
+                type: string
+    post:
+      summary: Authenticate user
+      description: Process login form submission
+      operationId: postLogin
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                  description: Gallery password
+              required:
+                - password
+      responses:
+        '302':
+          description: Redirect to gallery on success or back to login on failure
+        '200':
+          description: Login page with error message
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /logout:
+    get:
+      summary: Logout user
+      description: Clear authentication session and redirect to login
+      operationId: getLogout
+      responses:
+        '302':
+          description: Redirect to login page
+
+  /upload:
+    post:
+      summary: Upload photos
+      description: Upload one or more photo files with metadata
+      operationId: uploadPhotos
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photos:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Photo files to upload
+                uploader_name:
+                  type: string
+                  description: Name of the person uploading photos
+                event_name:
+                  type: string
+                  description: Event name for organizing photos
+              required:
+                - photos
+      responses:
+        '302':
+          description: Redirect to gallery after successful upload
+        '400':
+          description: Bad request (no files uploaded)
+        '401':
+          description: Unauthorized (not authenticated)
+        '405':
+          description: Method not allowed
+
+  /download-all:
+    get:
+      summary: Download all photos as ZIP
+      description: Download all photos (or filtered photos) as a ZIP archive
+      operationId: downloadAllPhotos
+      parameters:
+        - name: event
+          in: query
+          description: Filter photos by event name
+          required: false
+          schema:
+            type: string
+        - name: uploader
+          in: query
+          description: Filter photos by uploader name
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ZIP file containing photos
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized (not authenticated)
+        '404':
+          description: No photos to download
+        '405':
+          description: Method not allowed
+        '500':
+          description: Internal server error
+
+  /uploads/{filename}:
+    get:
+      summary: Serve uploaded photo
+      description: Serve a specific uploaded photo file
+      operationId: servePhoto
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          description: Name of the photo file
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Photo file
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Photo not found
+
+  /static/{filename}:
+    get:
+      summary: Serve static assets
+      description: Serve static CSS, JS, and other assets
+      operationId: serveStatic
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          description: Name of the static file
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Static file
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: File not found
+
+components:
+  schemas:
+    PhotoInfo:
+      type: object
+      properties:
+        path:
+          type: string
+          description: URL path to the photo
+          example: "/uploads/photo123.jpg"
+        name:
+          type: string
+          description: Filename of the photo
+          example: "photo123.jpg"
+        uploader:
+          type: string
+          description: Name of the person who uploaded the photo
+          example: "John Doe"
+        event:
+          type: string
+          description: Event name associated with the photo
+          example: "Birthday Party"
+        date:
+          type: string
+          format: date-time
+          description: Upload timestamp
+          example: "2023-12-01T10:30:00Z"
+      required:
+        - path
+        - name
+        - uploader
+        - date
+
+    GalleryData:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Site title
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhotoInfo'
+          description: List of photos to display
+        allEvents:
+          type: array
+          items:
+            type: string
+          description: List of all unique event names
+        allUploaders:
+          type: array
+          items:
+            type: string
+          description: List of all unique uploader names
+        selectedEvent:
+          type: string
+          description: Currently selected event filter
+        selectedUploader:
+          type: string
+          description: Currently selected uploader filter
+        totalPhotos:
+          type: integer
+          description: Total number of photos
+        filteredPhotos:
+          type: integer
+          description: Number of photos after filtering
+        cacheBreaker:
+          type: integer
+          description: Cache busting timestamp
+
+    LoginData:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Site title
+        error:
+          type: string
+          description: Error message if login failed
+        cacheBreaker:
+          type: integer
+          description: Cache busting timestamp
+
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: gallery-session
+      description: Session-based authentication using cookies
+
+security:
+  - sessionAuth: []
