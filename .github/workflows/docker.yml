@@ -35,4 +35,4 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         push: true
-        tags: gallery:latest
+        tags: ${{ vars.DOCKERHUB_USERNAME }}/gallery:latest
