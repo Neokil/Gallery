@@ -113,7 +113,8 @@ func (h *Handlers) HandlePostLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Login failed
+	// Login failed - clear any existing session
+	h.authService.Logout(w, r)
 	data := map[string]any{
 		"Title":        h.siteTitle,
 		"Error":        "Invalid password",
@@ -125,6 +126,15 @@ func (h *Handlers) HandlePostLogin(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to execute login template: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
+}
+
+// HandlePostLogout implements the logout handler
+func (h *Handlers) HandlePostLogout(w http.ResponseWriter, r *http.Request) {
+	// Clear the session
+	h.authService.Logout(w, r)
+
+	// Redirect to login page
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 // HandleUpload implements the photo upload handler
@@ -245,6 +255,29 @@ func (h *Handlers) HandleServePhoto(w http.ResponseWriter, r *http.Request, file
 	}
 
 	http.ServeFile(w, r, filePath)
+}
+
+// HandleServeThumbnail implements the thumbnail serving handler
+func (h *Handlers) HandleServeThumbnail(w http.ResponseWriter, r *http.Request, filename string) {
+	// Check authentication before serving thumbnails
+	if !h.authService.IsAuthenticated(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	thumbnailPath, err := h.galleryService.ServeThumbnail(filename)
+	if err != nil {
+		// If thumbnail doesn't exist, serve the original image
+		filePath, err := h.galleryService.ServePhoto(filename)
+		if err != nil {
+			http.Error(w, "File not found", http.StatusNotFound)
+			return
+		}
+		http.ServeFile(w, r, filePath)
+		return
+	}
+
+	http.ServeFile(w, r, thumbnailPath)
 }
 
 // HandleServeStatic implements the static file serving handler

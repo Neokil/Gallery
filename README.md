@@ -37,6 +37,10 @@ The application has been refactored to use a clean architecture with the followi
 - **Photo filtering**: Filter by event or uploader
 - **Bulk download**: Download all or filtered photos as ZIP
 - **Automatic metadata generation**: Creates metadata for existing images on startup
+- **Automatic thumbnail generation**: Creates 300px thumbnails for fast gallery loading
+  - Thumbnails generated on upload and startup for existing images
+  - Maintains aspect ratio with high-quality JPEG compression
+  - Falls back to original image if thumbnail unavailable
 - **Metadata cleanup**: Removes orphaned metadata files automatically
 - **Responsive design**: Works on desktop and mobile
 - **Dark mode support**: Automatic based on system preference
@@ -48,7 +52,8 @@ The application has been refactored to use a clean architecture with the followi
 - `POST /login` - Authentication
 - `POST /upload` - Upload photos with metadata
 - `GET /download-all` - Download photos as ZIP (supports filtering)
-- `GET /uploads/{filename}` - Serve uploaded photos
+- `GET /uploads/{filename}` - Serve uploaded photos (full resolution)
+- `GET /thumbnails/{filename}` - Serve photo thumbnails (300px max)
 - `GET /static/{filename}` - Serve static assets
 
 ## Environment Variables

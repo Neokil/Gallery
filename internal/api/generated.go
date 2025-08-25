@@ -86,6 +86,9 @@ type ServerInterface interface {
 	// Serve static assets
 	// (GET /static/{filename})
 	ServeStatic(w http.ResponseWriter, r *http.Request, filename string)
+	// Serve photo thumbnail
+	// (GET /thumbnails/{filename})
+	ServeThumbnail(w http.ResponseWriter, r *http.Request, filename string)
 	// Upload photos
 	// (POST /upload)
 	UploadPhotos(w http.ResponseWriter, r *http.Request)
@@ -125,6 +128,12 @@ func (_ Unimplemented) PostLogin(w http.ResponseWriter, r *http.Request) {
 // Serve static assets
 // (GET /static/{filename})
 func (_ Unimplemented) ServeStatic(w http.ResponseWriter, r *http.Request, filename string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Serve photo thumbnail
+// (GET /thumbnails/{filename})
+func (_ Unimplemented) ServeThumbnail(w http.ResponseWriter, r *http.Request, filename string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -275,6 +284,37 @@ func (siw *ServerInterfaceWrapper) ServeStatic(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ServeStatic(w, r, filename)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ServeThumbnail operation middleware
+func (siw *ServerInterfaceWrapper) ServeThumbnail(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "filename" -------------
+	var filename string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "filename", chi.URLParam(r, "filename"), &filename, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ServeThumbnail(w, r, filename)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -462,6 +502,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/static/{filename}", wrapper.ServeStatic)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/thumbnails/{filename}", wrapper.ServeThumbnail)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/upload", wrapper.UploadPhotos)
@@ -672,6 +715,50 @@ func (response ServeStatic404Response) VisitServeStaticResponse(w http.ResponseW
 	return nil
 }
 
+type ServeThumbnailRequestObject struct {
+	Filename string `json:"filename"`
+}
+
+type ServeThumbnailResponseObject interface {
+	VisitServeThumbnailResponse(w http.ResponseWriter) error
+}
+
+type ServeThumbnail200ImageResponse struct {
+	Body          io.Reader
+	ContentType   string
+	ContentLength int64
+}
+
+func (response ServeThumbnail200ImageResponse) VisitServeThumbnailResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", response.ContentType)
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type ServeThumbnail401Response struct {
+}
+
+func (response ServeThumbnail401Response) VisitServeThumbnailResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type ServeThumbnail404Response struct {
+}
+
+func (response ServeThumbnail404Response) VisitServeThumbnailResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
 type UploadPhotosRequestObject struct {
 	Body *multipart.Reader
 }
@@ -773,6 +860,9 @@ type StrictServerInterface interface {
 	// Serve static assets
 	// (GET /static/{filename})
 	ServeStatic(ctx context.Context, request ServeStaticRequestObject) (ServeStaticResponseObject, error)
+	// Serve photo thumbnail
+	// (GET /thumbnails/{filename})
+	ServeThumbnail(ctx context.Context, request ServeThumbnailRequestObject) (ServeThumbnailResponseObject, error)
 	// Upload photos
 	// (POST /upload)
 	UploadPhotos(ctx context.Context, request UploadPhotosRequestObject) (UploadPhotosResponseObject, error)
@@ -947,6 +1037,32 @@ func (sh *strictHandler) ServeStatic(w http.ResponseWriter, r *http.Request, fil
 	}
 }
 
+// ServeThumbnail operation middleware
+func (sh *strictHandler) ServeThumbnail(w http.ResponseWriter, r *http.Request, filename string) {
+	var request ServeThumbnailRequestObject
+
+	request.Filename = filename
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ServeThumbnail(ctx, request.(ServeThumbnailRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ServeThumbnail")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ServeThumbnailResponseObject); ok {
+		if err := validResponse.VisitServeThumbnailResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // UploadPhotos operation middleware
 func (sh *strictHandler) UploadPhotos(w http.ResponseWriter, r *http.Request) {
 	var request UploadPhotosRequestObject
@@ -1007,26 +1123,27 @@ func (sh *strictHandler) ServePhoto(w http.ResponseWriter, r *http.Request, file
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+RXS48aORD+K5ZPSdQM5CVF3CabTTT7iNCiXHY0WpnugvbG7XLs6iHMiP++KrubBhoY",
-	"8rzsZTRg18NfffVVcS9zrBxasBTk+F4GyGuvaTXNS6ig+SoEjfayppI/FhByrx1ptHIsp+lwMFMBCqFq",
-	"KsGSzhUfizpouxA54kcNQWZSs0X6KDNpVQVyLBfKGPCrQRNGZpJWjg+U07/DSq7Xa7acIwfP0ZLKif9t",
-	"zCclEop3yYlcZ3v5XYqgK2dAuHivCSaUc6bNcqmp3M9c2ULMtQFRO4Oq4KQ0mV48cTm5kpm8BR9SuKcX",
-	"o4sRZ4EOrHJajuXzi6cXI5lJp6iMeA75zwKoD+YbHZxRK0EliEppu0nXqQWkPOMzGEt04GOuV4Ucy3dA",
-	"LQQcyasKCHyQ4+v9GG+1IfCNHzFbCbgFSyKi2VToU538NAjHCzKTgSmhOOumQIG8tgu5XmcPBkkwgj8V",
-	"p71zMtRNJj0EhzYkcj4bjVpecJZsAZ9pWFJlInePOuox5d021h5sAR4KEeo8hxDmtTGRXc9Hz/p1+wsK",
-	"7SEnQSgMLrQVei4s0jaroGDzlyndXfMrS+CtMiKAvwUvwHv0DOumG2Mdd/rw+oahCHVVKb/ayz6aDgtc",
-	"WgZ0oIw5zrjmklDGtOV6hJ65T/H96bvHQgWhxN9XE6F8Xupb6DGw9XRpzKTl6P+biFsaM7zTbpeOc/SV",
-	"IjmWM21VDP4gQRn9qElRBLVlbW3kYJ3JF6On/fJ+sMxA9PoOCvGox8jHyfBF3/A9tpgRipZJ6fbL/u0/",
-	"gUosEuONweUP5voh0qrA7EzMjy14lsimZuVaHFLUP6KfHyY40f1JudlFZQeDzpihdhgOvHTikZ1tvVKE",
-	"elbpds7uPniCYevFn2oI9BqL1QlSfx4sl8sB+x3U3oDNsYBiFwTnOQjphJ1TISzRF/1UO/lqbvT7IWWl",
-	"PYe47lzdbG7i7F/IKSHdXSVfw/pn1DCO50hnUUEITWUenBftiEfbFl+gFzOVf+ymCVoxV9rUHk5y4nKr",
-	"t0UdIPXVMJAinQ/vWTtY4dZHW2PKPSnSffHLdJqJ36ZZ3IWQSvBChQDUXz6i2TRaPST671UFAuex+Zo4",
-	"nFYrxLwjdTrcJiz36/ltuvxk+OSbtXi6lfsxDX3LWs2aOMfaFqlym1rtQN3gGqvVLJzcLQeb+kM8F2iB",
-	"eVKhb1dbziUkFlZAqlCkepVKxpv5fLzNq9qQdsrTMLZ3dHaiseNk/ieVbT/hXzdjnSVIoF8oq++2hlcP",
-	"7kw2J31F23opYbeca4IqnFXK7teF9ypudO20P5L+NmMd+MA/a6LFqRfsi1W69jVSdbZ+qDkvOt38aMGJ",
-	"7DwwiF+rQjT1582gAbUBo90MvnqlOHNJ+KKx3zC/XXm6Zgnna5sSwUGu5zrfPHWrfcSjphhh7/fg48Oa",
-	"F+n4JZLXhfqpiqcrtYDvoHpd+33/jTP53pPLs7mRqrtb0vSCtGceKswbuAWDrmJ5SrdkJmtv5FiWRG48",
-	"HBrMlSkx0PjV6NVIrm/W/wUAAP//SA/kgi8RAAA=",
+	"H4sIAAAAAAAC/+RX224bNxD9lQGf4mBlKTcg0JvTNIF7CYSqealhFNTuSMuGy2HIWSuyoX8vSO7qtpIs",
+	"10lQIC9BrOVcOOfMmeGdyKmyZNCwF8M74TGvneLFOC+xwuYn7xWZi5rL8GeBPnfKsiIjhmKcPvYm0mMB",
+	"suYSDatchs9Qe2VmkBN9UuhFJlSwSH+KTBhZoRiKmdQa3aLXhBGZ4IUNH6RVv+JCLJfLYDmlEDwnwzLn",
+	"8N/GfFQSE7xPTsQy28nvAryqrEaw8VwTDKS1us1yrrjczVyaAqZKI9RWkyxCUop1Jx5cjC5FJm7Q+RTu",
+	"2fngfBCyIItGWiWG4sX5s/OByISVXMZ69sM/M+RuMd8qb7VcAJcIlVRmla6VM0x5xmuEWpJFF3O9LMRQ",
+	"vEduSxAiOVkho/NieLUb453SjK7xA5MF4A0ahljNBqHPdfLTVDgeEJnwgRIyZN0A5NkpMxPLZXZvkFRG",
+	"dMfitGeOhrrOhENvyfhEzueDQcuLkGWwwC/cL7nSkbsHHXWY8n6z1g5NgQ4L8HWeo/fTWuvIrheD513c",
+	"/sBCOcwZmEDTTBlQUzDEm6zCIpi/Sulum18aRmekBo/uBh2gc+RCWVfdGHHc6sOr61AKX1eVdIud7KNp",
+	"v6C5CQXtSa0PM645BFLrFq4n5AL3Od4//XYG0oOEvy5HIF1eqhvsMLD1dKH1qOXoj03EDY3p3yq7Tccp",
+	"uUqyGIqJMjIGv5egofpRk6IIKhO0tZGDZSZeDp514f1oAgPJqVss4EmHkWfJ8GXX8AO1NWOClknp9Kvu",
+	"6d+RSyoS47Wm+Tfm+j7SSh/YmZgfW/AkkU3NGrDYp6i/RT/fTHCi+6Nys12VrRqsjUOpLfk9Nx05Cs42",
+	"bgm+nlSqnbPbFx6R37jx5xo9v6FicYTUX3rz+bwX/PZqp9HkVGCxXQTrQhBWqXZWej8nV3RTXctXc6Lb",
+	"Dykr5UKIq7Wr69VJmvyDOadKr4+yq3H5PTCM4znSGSr0vkHm3nnRjngyLfhADiYy/7SeJmRgKpWuHR7l",
+	"xMVGb0PtMfVV37NklffvgnYEhVsebI1x6ElI5+Gn8TiDX8ZZ3IWIS3QgvUfuLh/RbByt7hP9D7JCoGls",
+	"viZOSKsV4rAjrXW4TVjs4vk4XX7af/poLR5v5H5IQ98FrQ6aOKXaFAm5FVZbpW7qGtHisq4mRirtT0dM",
+	"wsoKml20LXIzy5pBDk+aQvqdhfdsP6h/tm4fgmuK9N1hVZWc4VeAdnVniB43MP6aAzY9I3bYcfIETLCn",
+	"Qq+gT/xpHixBbfcOhY/xO5DBoDMVuU3AfFKxClkWkmWHFMl4td8dHhNVrVlZ6bgfx0N0dmQwxM3u78SP",
+	"3YR/Xq2FYYQBuZk06nZj+elgmonmy4Gqp5syrR93irHyJ/Fl/Tp1TsYXQbstHkh/qzPQ+fAsjhbHbrA7",
+	"7NKx/zLqTp4/choW5fX+0RYnEnjPIvdGFtDgH4jfFLWVm7NHdsyJS+aDmqZhfrsyr5vlQUrrLeZqqvJd",
+	"ZY2b+QPlNdLxB5LWdfv9PwV1G9J0g/RO2QfMW7xBTbYK8pROiUzUTouhKJntsN/XlEtdkufh68HrgVhe",
+	"L/8NAAD//4gRe7tvEwAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

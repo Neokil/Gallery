@@ -185,6 +185,33 @@ paths:
         "404":
           description: Photo not found
 
+  /thumbnails/{filename}:
+    get:
+      summary: Serve photo thumbnail
+      description: Serve a thumbnail version of the uploaded photo (requires authentication)
+      operationId: serveThumbnail
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          description: Name of the photo file
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thumbnail image file
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: Unauthorized (not authenticated)
+        "404":
+          description: Photo not found
+
   /static/{filename}:
     get:
       summary: Serve static assets

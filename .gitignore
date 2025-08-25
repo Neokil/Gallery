@@ -1,6 +1,6 @@
 # Binaries
-gallery
-server
+/gallery
+/server
 
 # Uploads directory
 uploads/

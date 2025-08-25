@@ -78,6 +78,10 @@ func (a *AuthService) Login(w http.ResponseWriter, r *http.Request, password str
 func (a *AuthService) Logout(w http.ResponseWriter, r *http.Request) {
 	session, _ := a.store.Get(r, "gallery-session")
 	session.Values["authenticated"] = false
+
+	// Set MaxAge to -1 to delete the cookie immediately
+	session.Options.MaxAge = -1
+
 	_ = session.Save(r, w) // Ignore error on logout
 }
 

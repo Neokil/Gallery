@@ -1,6 +1,9 @@
 package service
 
 import (
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
@@ -192,10 +195,10 @@ func TestGenerateMissingMetadata(t *testing.T) {
 	}
 
 	// Create test image files without metadata
-	testFiles := []string{"test1.jpg", "test2.png", "test3.gif"}
+	testFiles := []string{"test1.png", "test2.png", "test3.png"}
 	for _, filename := range testFiles {
 		testFile := filepath.Join(uploadDir, filename)
-		err = os.WriteFile(testFile, []byte("test image content"), 0644)
+		err = createTestPNG(testFile)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -246,16 +249,16 @@ func TestGenerateMissingMetadataSkipsExisting(t *testing.T) {
 	}
 
 	// Create test image file
-	testFile := filepath.Join(uploadDir, "existing.jpg")
-	err = os.WriteFile(testFile, []byte("test image content"), 0644)
+	testFile := filepath.Join(uploadDir, "existing.png")
+	err = createTestPNG(testFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Create existing metadata with custom values
 	existingMetadata := PhotoInfo{
-		Path:     "/uploads/existing.jpg",
-		Name:     "existing.jpg",
+		Path:     "/uploads/existing.png",
+		Name:     "existing.png",
 		Uploader: "TestUser",
 		Event:    "TestEvent",
 		Date:     time.Now(),
@@ -265,17 +268,200 @@ func TestGenerateMissingMetadataSkipsExisting(t *testing.T) {
 		uploadDir:   uploadDir,
 		metadataDir: metadataDir,
 	}
-	service.savePhotoMetadata("existing.jpg", &existingMetadata)
+	service.savePhotoMetadata("existing.png", &existingMetadata)
 
 	// Now create service (should not overwrite existing metadata)
 	service = NewGalleryService(uploadDir, metadataDir)
 
 	// Verify existing metadata was preserved
-	photoInfo := service.loadPhotoMetadata("existing.jpg")
+	photoInfo := service.loadPhotoMetadata("existing.png")
 	if photoInfo.Uploader != "TestUser" {
 		t.Errorf("Expected uploader to remain 'TestUser', got %s", photoInfo.Uploader)
 	}
 	if photoInfo.Event != "TestEvent" {
 		t.Errorf("Expected event to remain 'TestEvent', got %s", photoInfo.Event)
+	}
+}
+
+func TestServeThumbnail(t *testing.T) {
+	uploadDir := "test_uploads_thumb"
+	metadataDir := "test_metadata_thumb"
+	thumbnailDir := filepath.Join(metadataDir, "thumbnails")
+
+	// Clean up test directories
+	defer func() {
+		os.RemoveAll(uploadDir)
+		os.RemoveAll(metadataDir)
+	}()
+
+	// Create test directories
+	err := os.MkdirAll(thumbnailDir, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create test thumbnail file
+	testThumbnail := filepath.Join(thumbnailDir, "test.jpg")
+	err = os.WriteFile(testThumbnail, []byte("test thumbnail content"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service := &GalleryService{
+		uploadDir:    uploadDir,
+		metadataDir:  metadataDir,
+		thumbnailDir: thumbnailDir,
+	}
+
+	// Test existing thumbnail
+	path, err := service.ServeThumbnail("test.jpg")
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if path != testThumbnail {
+		t.Errorf("Expected path %s, got %s", testThumbnail, path)
+	}
+
+	// Test non-existing thumbnail
+	_, err = service.ServeThumbnail("nonexistent.jpg")
+	if err == nil {
+		t.Error("Expected error for non-existent thumbnail, got nil")
+	}
+}
+
+func TestGenerateThumbnail(t *testing.T) {
+	uploadDir := "test_uploads_gen_thumb"
+	metadataDir := "test_metadata_gen_thumb"
+	thumbnailDir := filepath.Join(metadataDir, "thumbnails")
+
+	// Clean up test directories
+	defer func() {
+		os.RemoveAll(uploadDir)
+		os.RemoveAll(metadataDir)
+	}()
+
+	// Create test directories
+	err := os.MkdirAll(uploadDir, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.MkdirAll(thumbnailDir, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service := &GalleryService{
+		uploadDir:    uploadDir,
+		metadataDir:  metadataDir,
+		thumbnailDir: thumbnailDir,
+	}
+
+	// Create a proper test PNG image programmatically
+	testImagePath := filepath.Join(uploadDir, "test.png")
+	err = createTestPNG(testImagePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Generate thumbnail
+	thumbnailPath := filepath.Join(thumbnailDir, "test.png")
+	err = service.generateThumbnail(testImagePath, thumbnailPath)
+	if err != nil {
+		t.Errorf("Expected no error generating thumbnail, got %v", err)
+	}
+
+	// Verify thumbnail was created
+	if _, err := os.Stat(thumbnailPath); os.IsNotExist(err) {
+		t.Error("Expected thumbnail file to be created")
+	}
+}
+
+// Helper function to create a valid test PNG image
+func createTestPNG(filename string) error {
+	// Create a 10x10 red image
+	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
+	red := color.RGBA{255, 0, 0, 255}
+	for y := 0; y < 10; y++ {
+		for x := 0; x < 10; x++ {
+			img.Set(x, y, red) // Red pixel
+		}
+	}
+
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	return png.Encode(file, img)
+}
+
+func TestCleanupOrphanedThumbnails(t *testing.T) {
+	uploadDir := "test_uploads_cleanup_thumb"
+	metadataDir := "test_metadata_cleanup_thumb"
+	thumbnailDir := filepath.Join(metadataDir, "thumbnails")
+
+	// Clean up test directories
+	defer func() {
+		os.RemoveAll(uploadDir)
+		os.RemoveAll(metadataDir)
+	}()
+
+	// Create test directories
+	err := os.MkdirAll(uploadDir, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.MkdirAll(thumbnailDir, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service := &GalleryService{
+		uploadDir:    uploadDir,
+		metadataDir:  metadataDir,
+		thumbnailDir: thumbnailDir,
+	}
+
+	// Create a valid image and its thumbnail
+	validImagePath := filepath.Join(uploadDir, "valid.png")
+	err = createTestPNG(validImagePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	validThumbnailPath := filepath.Join(thumbnailDir, "valid.png")
+	err = createTestPNG(validThumbnailPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create an orphaned thumbnail (no corresponding original image)
+	orphanedThumbnailPath := filepath.Join(thumbnailDir, "orphaned.png")
+	err = createTestPNG(orphanedThumbnailPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify both thumbnails exist before cleanup
+	if _, err := os.Stat(validThumbnailPath); os.IsNotExist(err) {
+		t.Fatal("Valid thumbnail should exist before cleanup")
+	}
+	if _, err := os.Stat(orphanedThumbnailPath); os.IsNotExist(err) {
+		t.Fatal("Orphaned thumbnail should exist before cleanup")
+	}
+
+	// Run cleanup
+	service.CleanupOrphanedThumbnails()
+
+	// Verify valid thumbnail still exists
+	if _, err := os.Stat(validThumbnailPath); os.IsNotExist(err) {
+		t.Error("Valid thumbnail should still exist after cleanup")
+	}
+
+	// Verify orphaned thumbnail was removed
+	if _, err := os.Stat(orphanedThumbnailPath); err == nil {
+		t.Error("Orphaned thumbnail should have been removed")
 	}
 }

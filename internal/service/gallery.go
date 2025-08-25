@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"fmt"
+	"image"
 	"io"
 	"log"
 	"mime/multipart"
@@ -11,10 +12,19 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"image/gif"
+	_ "image/gif" // Register GIF format
+	"image/jpeg"
+	_ "image/jpeg" // Register JPEG format
+	"image/png"
+	_ "image/png" // Register PNG format
 )
 
 const (
-	filePermissions = 0600 // File permissions for metadata files
+	filePermissions  = 0600 // File permissions for metadata files
+	thumbnailSize    = 300  // Thumbnail max width/height in pixels
+	thumbnailQuality = 80   // JPEG quality for thumbnails (0-100)
 )
 
 type PhotoInfo struct {
@@ -26,18 +36,27 @@ type PhotoInfo struct {
 }
 
 type GalleryService struct {
-	uploadDir   string
-	metadataDir string
+	uploadDir    string
+	metadataDir  string
+	thumbnailDir string
 }
 
 func NewGalleryService(uploadDir, metadataDir string) *GalleryService {
+	thumbnailDir := filepath.Join(metadataDir, "thumbnails")
+
 	service := &GalleryService{
-		uploadDir:   uploadDir,
-		metadataDir: metadataDir,
+		uploadDir:    uploadDir,
+		metadataDir:  metadataDir,
+		thumbnailDir: thumbnailDir,
 	}
 
-	// Generate metadata for existing images on startup
+	// Generate metadata and thumbnails for existing images on startup
 	service.GenerateMissingMetadata()
+	service.GenerateMissingThumbnails()
+
+	// Clean up orphaned files on startup
+	service.CleanupOrphanedMetadata()
+	service.CleanupOrphanedThumbnails()
 
 	return service
 }
@@ -158,6 +177,13 @@ func (s *GalleryService) SavePhoto(fileHeader *multipart.FileHeader, userName, e
 		return err
 	}
 
+	// Generate thumbnail
+	thumbnailPath := filepath.Join(s.thumbnailDir, filename)
+	if err := s.generateThumbnail(filePath, thumbnailPath); err != nil {
+		log.Printf("Failed to generate thumbnail for %s: %v", filename, err)
+		// Don't fail the upload if thumbnail generation fails
+	}
+
 	// Save photo metadata
 	photoInfo := PhotoInfo{
 		Path:     "/uploads/" + filename,
@@ -252,6 +278,37 @@ func (s *GalleryService) CleanupOrphanedMetadata() {
 	}
 }
 
+func (s *GalleryService) CleanupOrphanedThumbnails() {
+	thumbnailFiles, err := os.ReadDir(s.thumbnailDir)
+	if err != nil {
+		log.Printf("Failed to read thumbnail directory: %v", err)
+		return
+	}
+
+	removedCount := 0
+	for _, thumbnailFile := range thumbnailFiles {
+		if thumbnailFile.IsDir() || !s.isImageFile(thumbnailFile.Name()) {
+			continue
+		}
+
+		// Check if corresponding original image exists
+		originalImagePath := filepath.Join(s.uploadDir, thumbnailFile.Name())
+		if _, err := os.Stat(originalImagePath); os.IsNotExist(err) {
+			thumbnailPath := filepath.Join(s.thumbnailDir, thumbnailFile.Name())
+			if err := os.Remove(thumbnailPath); err != nil {
+				log.Printf("Failed to remove orphaned thumbnail file %s: %v", thumbnailFile.Name(), err)
+			} else {
+				log.Printf("Removed orphaned thumbnail file: %s", thumbnailFile.Name())
+				removedCount++
+			}
+		}
+	}
+
+	if removedCount > 0 {
+		log.Printf("Thumbnail cleanup complete: removed %d orphaned thumbnail files", removedCount)
+	}
+}
+
 func (s *GalleryService) GenerateMissingMetadata() {
 	// Ensure directories exist
 	if err := os.MkdirAll(s.uploadDir, 0755); err != nil {
@@ -308,6 +365,134 @@ func (s *GalleryService) GenerateMissingMetadata() {
 	} else {
 		log.Printf("All existing images already have metadata")
 	}
+}
+
+func (s *GalleryService) GenerateMissingThumbnails() {
+	// Ensure thumbnail directory exists
+	if err := os.MkdirAll(s.thumbnailDir, 0755); err != nil {
+		log.Printf("Failed to create thumbnail directory: %v", err)
+		return
+	}
+
+	files, err := os.ReadDir(s.uploadDir)
+	if err != nil {
+		log.Printf("Failed to read upload directory for thumbnails: %v", err)
+		return
+	}
+
+	generatedCount := 0
+	for _, file := range files {
+		if file.IsDir() || !s.isImageFile(file.Name()) {
+			continue
+		}
+
+		// Check if thumbnail already exists
+		thumbnailPath := filepath.Join(s.thumbnailDir, file.Name())
+		if _, err := os.Stat(thumbnailPath); err == nil {
+			continue // Thumbnail already exists
+		}
+
+		// Generate thumbnail
+		originalPath := filepath.Join(s.uploadDir, file.Name())
+		if err := s.generateThumbnail(originalPath, thumbnailPath); err != nil {
+			log.Printf("Failed to generate thumbnail for %s: %v", file.Name(), err)
+			continue
+		}
+
+		generatedCount++
+		log.Printf("Generated thumbnail for existing image: %s", file.Name())
+	}
+
+	if generatedCount > 0 {
+		log.Printf("Startup thumbnail generation complete: created %d thumbnails", generatedCount)
+	} else {
+		log.Printf("All existing images already have thumbnails")
+	}
+}
+
+func (s *GalleryService) generateThumbnail(originalPath, thumbnailPath string) error {
+	// Open original image
+	originalFile, err := os.Open(originalPath)
+	if err != nil {
+		return fmt.Errorf("failed to open original image: %w", err)
+	}
+	defer originalFile.Close()
+
+	// Decode image
+	img, format, err := image.Decode(originalFile)
+	if err != nil {
+		return fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	// Calculate thumbnail dimensions maintaining aspect ratio
+	bounds := img.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+
+	var newWidth, newHeight int
+	if width > height {
+		newWidth = thumbnailSize
+		newHeight = (height * thumbnailSize) / width
+	} else {
+		newHeight = thumbnailSize
+		newWidth = (width * thumbnailSize) / height
+	}
+
+	// Create thumbnail using simple nearest neighbor scaling
+	thumbnail := s.resizeImage(img, newWidth, newHeight)
+
+	// Create thumbnail file
+	thumbnailFile, err := os.Create(thumbnailPath)
+	if err != nil {
+		return fmt.Errorf("failed to create thumbnail file: %w", err)
+	}
+	defer thumbnailFile.Close()
+
+	// Encode thumbnail based on original format
+	switch format {
+	case "jpeg", "jpg":
+		err = jpeg.Encode(thumbnailFile, thumbnail, &jpeg.Options{Quality: thumbnailQuality})
+	case "png":
+		err = png.Encode(thumbnailFile, thumbnail)
+	case "gif":
+		err = gif.Encode(thumbnailFile, thumbnail, nil)
+	default:
+		// Default to JPEG for unknown formats
+		err = jpeg.Encode(thumbnailFile, thumbnail, &jpeg.Options{Quality: thumbnailQuality})
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to encode thumbnail: %w", err)
+	}
+
+	return nil
+}
+
+// Simple image resizing using nearest neighbor
+func (s *GalleryService) resizeImage(src image.Image, width, height int) image.Image {
+	srcBounds := src.Bounds()
+	srcWidth := srcBounds.Dx()
+	srcHeight := srcBounds.Dy()
+
+	dst := image.NewRGBA(image.Rect(0, 0, width, height))
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			srcX := (x * srcWidth) / width
+			srcY := (y * srcHeight) / height
+			dst.Set(x, y, src.At(srcBounds.Min.X+srcX, srcBounds.Min.Y+srcY))
+		}
+	}
+
+	return dst
+}
+
+func (s *GalleryService) ServeThumbnail(filename string) (string, error) {
+	thumbnailPath := filepath.Join(s.thumbnailDir, filename)
+	if _, err := os.Stat(thumbnailPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("thumbnail not found")
+	}
+	return thumbnailPath, nil
 }
 
 // Private helper methods

@@ -43,10 +43,6 @@ func main() {
 	galleryService := service.NewGalleryService(uploadDir, metadataDir)
 	authService := service.NewAuthService(password, sessionKey)
 
-	// Clean up orphaned metadata files
-	log.Printf("Cleaning up orphaned metadata files...")
-	galleryService.CleanupOrphanedMetadata()
-
 	// Initialize handlers
 	h, err := handlers.NewHandlers(galleryService, authService, siteTitle)
 	if err != nil {
@@ -108,6 +104,10 @@ func (s *ServerWrapper) PostLogin(w http.ResponseWriter, r *http.Request) {
 	s.handlers.HandlePostLogin(w, r)
 }
 
+func (s *ServerWrapper) PostLogout(w http.ResponseWriter, r *http.Request) {
+	s.handlers.HandlePostLogout(w, r)
+}
+
 func (s *ServerWrapper) UploadPhotos(w http.ResponseWriter, r *http.Request) {
 	s.handlers.HandleUpload(w, r)
 }
@@ -118,6 +118,10 @@ func (s *ServerWrapper) DownloadAllPhotos(w http.ResponseWriter, r *http.Request
 
 func (s *ServerWrapper) ServePhoto(w http.ResponseWriter, r *http.Request, filename string) {
 	s.handlers.HandleServePhoto(w, r, filename)
+}
+
+func (s *ServerWrapper) ServeThumbnail(w http.ResponseWriter, r *http.Request, filename string) {
+	s.handlers.HandleServeThumbnail(w, r, filename)
 }
 
 func (s *ServerWrapper) ServeStatic(w http.ResponseWriter, r *http.Request, filename string) {
