@@ -31,7 +31,7 @@ func NewAuthService(password, sessionKey string) *AuthService {
 		Path:     "/",
 		MaxAge:   86400 * 7, // 7 days
 		HttpOnly: true,
-		Secure:   false, // Set to true if using HTTPS
+		Secure:   false, // Will be set dynamically based on request
 		SameSite: http.SameSiteLaxMode,
 		Domain:   "", // Empty domain works better with IP addresses
 	}
@@ -64,6 +64,9 @@ func (a *AuthService) Login(w http.ResponseWriter, r *http.Request, password str
 	if err != nil {
 		return false
 	}
+
+	// Set secure cookie if using HTTPS
+	session.Options.Secure = r.Header.Get("X-Forwarded-Proto") == "https" || r.TLS != nil
 
 	session.Values["authenticated"] = true
 	if err := session.Save(r, w); err != nil {

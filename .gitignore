@@ -9,6 +9,10 @@ metadata/
 # Environment files
 .env
 
+# SSL certificates and keys
+nginx/ssl/
+nginx/dhparam.pem
+
 # Go
 *.exe
 *.exe~

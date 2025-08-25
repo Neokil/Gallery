@@ -63,6 +63,53 @@ The application has been refactored to use a clean architecture with the followi
 
 - Go 1.24+
 - oapi-codegen v2
+- Docker and Docker Compose
+
+### Running with Docker Compose
+
+1. **Generate SSL certificates** (for HTTPS support):
+   ```bash
+   ./generate-ssl.sh
+   ```
+
+2. **Start the application**:
+   ```bash
+   docker-compose up --build -d
+   ```
+
+3. **Access the gallery**:
+   - HTTP: http://localhost (redirects to HTTPS)
+   - HTTPS: https://localhost
+
+### HTTPS Setup
+
+The application includes a reverse proxy setup with Nginx for HTTPS support:
+
+- **Self-signed certificates**: Use `./generate-ssl.sh` for development
+- **Production certificates**: Replace files in `nginx/ssl/` with real certificates
+- **Let's Encrypt**: You can integrate certbot for automatic certificate management
+
+#### Production SSL Setup
+
+For production, replace the self-signed certificates:
+
+1. Obtain SSL certificates from your certificate authority
+2. Place them in the `nginx/ssl/` directory:
+   - `cert.pem` - Your SSL certificate
+   - `key.pem` - Your private key
+3. Restart the containers: `docker-compose restart nginx`
+
+#### Let's Encrypt Integration
+
+For automatic SSL certificates with Let's Encrypt, you can extend the docker-compose with certbot:
+
+```yaml
+certbot:
+  image: certbot/certbot
+  volumes:
+    - ./nginx/ssl:/etc/letsencrypt
+  command: certonly --webroot --webroot-path=/var/www/certbot --email your-email@domain.com --agree-tos --no-eff-email -d your-domain.com
+```
 
 ## Technology Stack
 
