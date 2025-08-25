@@ -52,6 +52,7 @@ function openUploadDialog() {
 function closeUploadDialog() {
     uploadDialog.style.display = 'none';
     fileInput.value = '';
+    document.getElementById('uploader-name').value = '';
     document.getElementById('event-name').value = '';
     updateFileList();
 }
@@ -93,6 +94,7 @@ function formatFileSize(bytes) {
 
 function uploadFiles() {
     const files = fileInput.files;
+    const uploaderName = document.getElementById('uploader-name').value.trim();
     const eventName = document.getElementById('event-name').value.trim();
 
     if (files.length === 0) return;
@@ -101,6 +103,9 @@ function uploadFiles() {
     const formData = new FormData();
     for (let i = 0; i < files.length; i++) {
         formData.append('photos', files[i]);
+    }
+    if (uploaderName) {
+        formData.append('uploader_name', uploaderName);
     }
     if (eventName) {
         formData.append('event_name', eventName);

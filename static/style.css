@@ -50,17 +50,7 @@ body {
     transition: border-color 0.3s;
 }
 
-.login-form .name-input {
-    margin-bottom: 8px;
-}
 
-.login-form .optional-text {
-    font-size: 12px;
-    color: #999;
-    margin-bottom: 20px;
-    margin-top: -12px;
-    text-align: left;
-}
 
 .login-form input:focus {
     outline: none;
@@ -279,8 +269,13 @@ main {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* Gallery Grid */
@@ -566,48 +561,48 @@ main {
     header {
         padding: 15px;
     }
-    
+
     header h1 {
         font-size: 1.5rem;
     }
-    
+
     main {
         padding: 20px 15px;
     }
-    
+
     .filter-controls {
         flex-direction: column;
         gap: 15px;
         align-items: stretch;
     }
-    
+
     .filter-group {
         min-width: auto;
     }
-    
+
     .clear-filters-btn {
         align-self: flex-start;
     }
-    
+
     .filter-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
     }
-    
+
     .upload-area {
         padding: 30px 20px;
     }
-    
+
     .gallery {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 15px;
     }
-    
+
     .photo-item img {
         height: 150px;
     }
-    
+
     .modal-content {
         max-width: 95%;
         max-height: 95%;

@@ -128,6 +128,13 @@
             <form id="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
                 <div class="dialog-body">
                     <div class="form-group">
+                        <label for="uploader-name">Your Name (optional)</label>
+                        <input type="text" id="uploader-name" name="uploader_name"
+                            placeholder="Your name">
+                        <small>Add your name so others know who uploaded these photos</small>
+                    </div>
+
+                    <div class="form-group">
                         <label for="event-name">Event Name (optional)</label>
                         <input type="text" id="event-name" name="event_name"
                             placeholder="e.g., Birthday Party, Wedding, Vacation">

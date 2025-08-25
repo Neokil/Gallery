@@ -116,13 +116,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		if r.FormValue("password") == password {
 			session, _ := store.Get(r, "gallery-session")
 			session.Values["authenticated"] = true
-
-			// Store the user's name if provided
-			name := strings.TrimSpace(r.FormValue("name"))
-			if name != "" {
-				session.Values["user_name"] = name
-			}
-
 			session.Save(r, w)
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
@@ -179,16 +172,13 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user name from session
-	session, _ := store.Get(r, "gallery-session")
-	userName := "Anonymous"
-	if name, ok := session.Values["user_name"].(string); ok && name != "" {
-		userName = name
-	}
-
 	r.ParseMultipartForm(32 << 20) // 32MB max
 
-	// Get event name from form
+	// Get uploader name and event name from form
+	userName := strings.TrimSpace(r.FormValue("uploader_name"))
+	if userName == "" {
+		userName = "Anonymous"
+	}
 	eventName := strings.TrimSpace(r.FormValue("event_name"))
 
 	files := r.MultipartForm.File["photos"]
