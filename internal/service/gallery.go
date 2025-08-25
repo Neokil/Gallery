@@ -31,10 +31,15 @@ type GalleryService struct {
 }
 
 func NewGalleryService(uploadDir, metadataDir string) *GalleryService {
-	return &GalleryService{
+	service := &GalleryService{
 		uploadDir:   uploadDir,
 		metadataDir: metadataDir,
 	}
+
+	// Generate metadata for existing images on startup
+	service.GenerateMissingMetadata()
+
+	return service
 }
 
 func (s *GalleryService) GetPhotos() ([]PhotoInfo, error) {
@@ -244,6 +249,64 @@ func (s *GalleryService) CleanupOrphanedMetadata() {
 
 	if removedCount > 0 {
 		log.Printf("Cleanup complete: removed %d orphaned metadata files", removedCount)
+	}
+}
+
+func (s *GalleryService) GenerateMissingMetadata() {
+	// Ensure directories exist
+	if err := os.MkdirAll(s.uploadDir, 0755); err != nil {
+		log.Printf("Failed to create upload directory: %v", err)
+		return
+	}
+	if err := os.MkdirAll(s.metadataDir, 0755); err != nil {
+		log.Printf("Failed to create metadata directory: %v", err)
+		return
+	}
+
+	files, err := os.ReadDir(s.uploadDir)
+	if err != nil {
+		log.Printf("Failed to read upload directory: %v", err)
+		return
+	}
+
+	generatedCount := 0
+	for _, file := range files {
+		if file.IsDir() || !s.isImageFile(file.Name()) {
+			continue
+		}
+
+		// Check if metadata already exists
+		metadataFile := filepath.Join(s.metadataDir, file.Name()+".json")
+		if _, err := os.Stat(metadataFile); err == nil {
+			continue // Metadata already exists
+		}
+
+		// Get file info for creation date
+		fileInfo, err := file.Info()
+		if err != nil {
+			log.Printf("Failed to get file info for %s: %v", file.Name(), err)
+			continue
+		}
+
+		// Generate default metadata
+		photoInfo := PhotoInfo{
+			Path:     "/uploads/" + file.Name(),
+			Name:     file.Name(),
+			Uploader: "Unknown",
+			Event:    "",
+			Date:     fileInfo.ModTime(),
+		}
+
+		// Save the generated metadata
+		s.savePhotoMetadata(file.Name(), &photoInfo)
+		generatedCount++
+		log.Printf("Generated metadata for existing image: %s", file.Name())
+	}
+
+	if generatedCount > 0 {
+		log.Printf("Startup metadata generation complete: created %d metadata files", generatedCount)
+	} else {
+		log.Printf("All existing images already have metadata")
 	}
 }
 

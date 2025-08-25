@@ -36,6 +36,8 @@ The application has been refactored to use a clean architecture with the followi
 - **Photo upload**: Multi-file upload with metadata (uploader name, event)
 - **Photo filtering**: Filter by event or uploader
 - **Bulk download**: Download all or filtered photos as ZIP
+- **Automatic metadata generation**: Creates metadata for existing images on startup
+- **Metadata cleanup**: Removes orphaned metadata files automatically
 - **Responsive design**: Works on desktop and mobile
 - **Dark mode support**: Automatic based on system preference
 

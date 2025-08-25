@@ -39,10 +39,12 @@ func main() {
 	}
 
 	// Initialize services
+	log.Printf("Initializing gallery service...")
 	galleryService := service.NewGalleryService(uploadDir, metadataDir)
 	authService := service.NewAuthService(password, sessionKey)
 
 	// Clean up orphaned metadata files
+	log.Printf("Cleaning up orphaned metadata files...")
 	galleryService.CleanupOrphanedMetadata()
 
 	// Initialize handlers

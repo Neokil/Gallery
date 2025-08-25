@@ -174,3 +174,108 @@ func TestServePhoto(t *testing.T) {
 		t.Error("Expected error for non-existent file, got nil")
 	}
 }
+
+func TestGenerateMissingMetadata(t *testing.T) {
+	uploadDir := "test_uploads_metadata"
+	metadataDir := "test_metadata_metadata"
+
+	// Clean up test directories
+	defer func() {
+		os.RemoveAll(uploadDir)
+		os.RemoveAll(metadataDir)
+	}()
+
+	// Create test directories
+	err := os.MkdirAll(uploadDir, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create test image files without metadata
+	testFiles := []string{"test1.jpg", "test2.png", "test3.gif"}
+	for _, filename := range testFiles {
+		testFile := filepath.Join(uploadDir, filename)
+		err = os.WriteFile(testFile, []byte("test image content"), 0644)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Create service (this should trigger metadata generation)
+	service := NewGalleryService(uploadDir, metadataDir)
+
+	// Verify metadata files were created
+	for _, filename := range testFiles {
+		metadataFile := filepath.Join(metadataDir, filename+".json")
+		if _, err := os.Stat(metadataFile); os.IsNotExist(err) {
+			t.Errorf("Expected metadata file %s to be created", metadataFile)
+		}
+
+		// Verify metadata content
+		photoInfo := service.loadPhotoMetadata(filename)
+		if photoInfo.Name != filename {
+			t.Errorf("Expected photo name %s, got %s", filename, photoInfo.Name)
+		}
+		if photoInfo.Uploader != "Unknown" {
+			t.Errorf("Expected uploader to be 'Unknown', got %s", photoInfo.Uploader)
+		}
+		if photoInfo.Path != "/uploads/"+filename {
+			t.Errorf("Expected path to be '/uploads/%s', got %s", filename, photoInfo.Path)
+		}
+	}
+}
+
+func TestGenerateMissingMetadataSkipsExisting(t *testing.T) {
+	uploadDir := "test_uploads_existing"
+	metadataDir := "test_metadata_existing"
+
+	// Clean up test directories
+	defer func() {
+		os.RemoveAll(uploadDir)
+		os.RemoveAll(metadataDir)
+	}()
+
+	// Create test directories
+	err := os.MkdirAll(uploadDir, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.MkdirAll(metadataDir, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create test image file
+	testFile := filepath.Join(uploadDir, "existing.jpg")
+	err = os.WriteFile(testFile, []byte("test image content"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create existing metadata with custom values
+	existingMetadata := PhotoInfo{
+		Path:     "/uploads/existing.jpg",
+		Name:     "existing.jpg",
+		Uploader: "TestUser",
+		Event:    "TestEvent",
+		Date:     time.Now(),
+	}
+
+	service := &GalleryService{
+		uploadDir:   uploadDir,
+		metadataDir: metadataDir,
+	}
+	service.savePhotoMetadata("existing.jpg", &existingMetadata)
+
+	// Now create service (should not overwrite existing metadata)
+	service = NewGalleryService(uploadDir, metadataDir)
+
+	// Verify existing metadata was preserved
+	photoInfo := service.loadPhotoMetadata("existing.jpg")
+	if photoInfo.Uploader != "TestUser" {
+		t.Errorf("Expected uploader to remain 'TestUser', got %s", photoInfo.Uploader)
+	}
+	if photoInfo.Event != "TestEvent" {
+		t.Errorf("Expected event to remain 'TestEvent', got %s", photoInfo.Event)
+	}
+}
