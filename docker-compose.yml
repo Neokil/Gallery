@@ -1,12 +1,12 @@
 version: "3.8"
 
 services:
-  gallery:
+  ourgallery:
     build: .
     ports:
       - "8080:8080"
     environment:
-      - GALLERY_PASSWORD=your-secret-password
+      - GALLERY_PASSWORD=pwd
       - SITE_TITLE=My Event Photos
       - PORT=8080
     volumes:
