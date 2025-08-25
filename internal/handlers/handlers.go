@@ -1,3 +1,4 @@
+// Package handlers provides HTTP request handlers for the photo gallery application.
 package handlers
 
 import (
@@ -12,6 +13,10 @@ import (
 
 	"photo-gallery/internal/api"
 	"photo-gallery/internal/service"
+)
+
+const (
+	maxUploadSize = 32 << 20 // 32MB max upload size
 )
 
 type Handlers struct {
@@ -79,7 +84,10 @@ func (h *Handlers) HandleGallery(w http.ResponseWriter, r *http.Request, params 
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	h.templates.ExecuteTemplate(w, "gallery.html", data)
+	if err := h.templates.ExecuteTemplate(w, "gallery.html", data); err != nil {
+		log.Printf("Failed to execute gallery template: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
 }
 
 // HandleGetLogin implements the login page handler
@@ -90,7 +98,10 @@ func (h *Handlers) HandleGetLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	h.templates.ExecuteTemplate(w, "login.html", data)
+	if err := h.templates.ExecuteTemplate(w, "login.html", data); err != nil {
+		log.Printf("Failed to execute login template: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
 }
 
 // HandlePostLogin implements the login form submission handler
@@ -110,7 +121,10 @@ func (h *Handlers) HandlePostLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	h.templates.ExecuteTemplate(w, "login.html", data)
+	if err := h.templates.ExecuteTemplate(w, "login.html", data); err != nil {
+		log.Printf("Failed to execute login template: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
 }
 
 // HandleUpload implements the photo upload handler
@@ -126,7 +140,7 @@ func (h *Handlers) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := r.ParseMultipartForm(32 << 20) // 32MB max
+	err := r.ParseMultipartForm(maxUploadSize)
 	if err != nil {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
@@ -209,8 +223,11 @@ func (h *Handlers) HandleDownloadAll(w http.ResponseWriter, r *http.Request, par
 	}
 
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
-	h.galleryService.CreateZipArchive(filteredPhotos, w)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	if err := h.galleryService.CreateZipArchive(filteredPhotos, w); err != nil {
+		log.Printf("Failed to create zip archive: %v", err)
+		http.Error(w, "Failed to create archive", http.StatusInternalServerError)
+	}
 }
 
 // HandleServePhoto implements the photo serving handler

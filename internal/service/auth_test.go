@@ -1,6 +1,7 @@
 package service
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 )
@@ -29,7 +30,7 @@ func TestLogin(t *testing.T) {
 
 	// Test correct password
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/login", nil)
+	r := httptest.NewRequest("POST", "/login", http.NoBody)
 
 	result := service.Login(w, r, password)
 	if !result {
@@ -38,7 +39,7 @@ func TestLogin(t *testing.T) {
 
 	// Test incorrect password
 	w = httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/login", nil)
+	r = httptest.NewRequest("POST", "/login", http.NoBody)
 
 	result = service.Login(w, r, "wrong-password")
 	if result {
@@ -50,14 +51,14 @@ func TestIsAuthenticated(t *testing.T) {
 	service := NewAuthService("password")
 
 	// Test without session
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	if service.IsAuthenticated(r) {
 		t.Error("Expected authentication to fail without session")
 	}
 
 	// Test with valid session - need to simulate the full login flow
 	w := httptest.NewRecorder()
-	r = httptest.NewRequest("POST", "/login", nil)
+	r = httptest.NewRequest("POST", "/login", http.NoBody)
 
 	// Login first
 	loginSuccess := service.Login(w, r, "password")
@@ -73,7 +74,7 @@ func TestIsAuthenticated(t *testing.T) {
 	}
 
 	// Create new request with session cookie
-	r2 := httptest.NewRequest("GET", "/", nil)
+	r2 := httptest.NewRequest("GET", "/", http.NoBody)
 	for _, cookie := range cookies {
 		r2.AddCookie(cookie)
 	}
@@ -88,7 +89,7 @@ func TestLogout(t *testing.T) {
 
 	// Login first
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/login", nil)
+	r := httptest.NewRequest("POST", "/login", http.NoBody)
 	loginSuccess := service.Login(w, r, "password")
 	if !loginSuccess {
 		t.Fatal("Login should have succeeded")
@@ -102,7 +103,7 @@ func TestLogout(t *testing.T) {
 	}
 
 	// Create new request with session cookie for logout
-	r2 := httptest.NewRequest("GET", "/logout", nil)
+	r2 := httptest.NewRequest("GET", "/logout", http.NoBody)
 	for _, cookie := range cookies {
 		r2.AddCookie(cookie)
 	}
@@ -113,7 +114,7 @@ func TestLogout(t *testing.T) {
 
 	// Create new request with updated session cookie to test authentication
 	logoutCookies := w2.Result().Cookies()
-	r3 := httptest.NewRequest("GET", "/", nil)
+	r3 := httptest.NewRequest("GET", "/", http.NoBody)
 	for _, cookie := range logoutCookies {
 		r3.AddCookie(cookie)
 	}

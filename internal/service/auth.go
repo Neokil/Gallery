@@ -1,3 +1,4 @@
+// Package service provides business logic services for the photo gallery application.
 package service
 
 import (
@@ -6,6 +7,10 @@ import (
 	"net/http"
 
 	"github.com/gorilla/sessions"
+)
+
+const (
+	secretKeyLength = 32 // Length of secret key in bytes
 )
 
 type AuthService struct {
@@ -35,18 +40,23 @@ func (a *AuthService) Login(w http.ResponseWriter, r *http.Request, password str
 
 	session, _ := a.store.Get(r, "gallery-session")
 	session.Values["authenticated"] = true
-	session.Save(r, w)
+	if err := session.Save(r, w); err != nil {
+		return false
+	}
 	return true
 }
 
 func (a *AuthService) Logout(w http.ResponseWriter, r *http.Request) {
 	session, _ := a.store.Get(r, "gallery-session")
 	session.Values["authenticated"] = false
-	session.Save(r, w)
+	_ = session.Save(r, w) // Ignore error on logout
 }
 
 func generateSecretKey() string {
-	key := make([]byte, 32)
-	rand.Read(key)
+	key := make([]byte, secretKeyLength)
+	if _, err := rand.Read(key); err != nil {
+		// Fallback to a default key if random generation fails
+		return "default-secret-key-change-in-production"
+	}
 	return base64.StdEncoding.EncodeToString(key)
 }

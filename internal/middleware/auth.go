@@ -1,3 +1,4 @@
+// Package middleware provides HTTP middleware for the photo gallery application.
 package middleware
 
 import (

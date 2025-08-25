@@ -13,6 +13,10 @@ import (
 	"photo-gallery/internal/service"
 )
 
+const (
+	dirPermissions = 0750 // Directory permissions
+)
+
 func main() {
 	// Environment variables
 	siteTitle := getEnv("SITE_TITLE", "Photo Gallery")
@@ -26,10 +30,10 @@ func main() {
 	}
 
 	// Create directories
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+	if err := os.MkdirAll(uploadDir, dirPermissions); err != nil {
 		log.Fatal("Failed to create upload directory:", err)
 	}
-	if err := os.MkdirAll(metadataDir, 0755); err != nil {
+	if err := os.MkdirAll(metadataDir, dirPermissions); err != nil {
 		log.Fatal("Failed to create metadata directory:", err)
 	}
 

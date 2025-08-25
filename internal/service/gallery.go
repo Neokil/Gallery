@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+const (
+	filePermissions = 0600 // File permissions for metadata files
+)
+
 type PhotoInfo struct {
 	Path     string    `json:"path"`
 	Name     string    `json:"name"`
@@ -81,50 +85,37 @@ func (s *GalleryService) FilterPhotos(photos []PhotoInfo, eventFilter, uploaderF
 	return filtered
 }
 
-func (s *GalleryService) GetUniqueEvents(photos []PhotoInfo) []string {
-	eventSet := make(map[string]bool)
-	var events []string
+// getUniqueValues is a helper function to extract unique non-empty values from photos
+func (s *GalleryService) getUniqueValues(photos []PhotoInfo, extractor func(PhotoInfo) string) []string {
+	valueSet := make(map[string]bool)
+	var values []string
 
 	for _, photo := range photos {
-		if photo.Event != "" && !eventSet[photo.Event] {
-			eventSet[photo.Event] = true
-			events = append(events, photo.Event)
+		value := extractor(photo)
+		if value != "" && !valueSet[value] {
+			valueSet[value] = true
+			values = append(values, value)
 		}
 	}
 
-	// Sort events alphabetically
-	for i := 0; i < len(events)-1; i++ {
-		for j := i + 1; j < len(events); j++ {
-			if events[i] > events[j] {
-				events[i], events[j] = events[j], events[i]
+	// Sort values alphabetically using bubble sort
+	for i := 0; i < len(values)-1; i++ {
+		for j := i + 1; j < len(values); j++ {
+			if values[i] > values[j] {
+				values[i], values[j] = values[j], values[i]
 			}
 		}
 	}
 
-	return events
+	return values
+}
+
+func (s *GalleryService) GetUniqueEvents(photos []PhotoInfo) []string {
+	return s.getUniqueValues(photos, func(p PhotoInfo) string { return p.Event })
 }
 
 func (s *GalleryService) GetUniqueUploaders(photos []PhotoInfo) []string {
-	uploaderSet := make(map[string]bool)
-	var uploaders []string
-
-	for _, photo := range photos {
-		if photo.Uploader != "" && !uploaderSet[photo.Uploader] {
-			uploaderSet[photo.Uploader] = true
-			uploaders = append(uploaders, photo.Uploader)
-		}
-	}
-
-	// Sort uploaders alphabetically
-	for i := 0; i < len(uploaders)-1; i++ {
-		for j := i + 1; j < len(uploaders); j++ {
-			if uploaders[i] > uploaders[j] {
-				uploaders[i], uploaders[j] = uploaders[j], uploaders[i]
-			}
-		}
-	}
-
-	return uploaders
+	return s.getUniqueValues(photos, func(p PhotoInfo) string { return p.Uploader })
 }
 
 func (s *GalleryService) SavePhoto(fileHeader *multipart.FileHeader, userName, eventName string) error {
@@ -136,17 +127,26 @@ func (s *GalleryService) SavePhoto(fileHeader *multipart.FileHeader, userName, e
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("Failed to close file: %v", closeErr)
+		}
+	}()
 
 	// Generate unique filename preserving original name
 	filename := s.generateUniqueFilename(fileHeader.Filename)
 	filePath := filepath.Join(s.uploadDir, filename)
 
+	// #nosec G304 - filePath is constructed from controlled uploadDir and sanitized filename
 	dst, err := os.Create(filePath)
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
+	defer func() {
+		if closeErr := dst.Close(); closeErr != nil {
+			log.Printf("Failed to close destination file: %v", closeErr)
+		}
+	}()
 
 	_, err = io.Copy(dst, file)
 	if err != nil {
@@ -161,19 +161,24 @@ func (s *GalleryService) SavePhoto(fileHeader *multipart.FileHeader, userName, e
 		Event:    eventName,
 		Date:     time.Now(),
 	}
-	s.savePhotoMetadata(filename, photoInfo)
+	s.savePhotoMetadata(filename, &photoInfo)
 
 	return nil
 }
 
 func (s *GalleryService) CreateZipArchive(photos []PhotoInfo, writer io.Writer) error {
 	zipWriter := zip.NewWriter(writer)
-	defer zipWriter.Close()
+	defer func() {
+		if err := zipWriter.Close(); err != nil {
+			log.Printf("Failed to close zip writer: %v", err)
+		}
+	}()
 
 	for _, photo := range photos {
 		filename := filepath.Base(photo.Path)
 		filePath := filepath.Join(s.uploadDir, filename)
 
+		// #nosec G304 - filePath is constructed from controlled uploadDir and photo.Name
 		fileReader, err := os.Open(filePath)
 		if err != nil {
 			log.Printf("Failed to open file %s: %v", filename, err)
@@ -183,7 +188,9 @@ func (s *GalleryService) CreateZipArchive(photos []PhotoInfo, writer io.Writer) 
 		zipFile, err := zipWriter.Create(filename)
 		if err != nil {
 			log.Printf("Failed to create zip entry for %s: %v", filename, err)
-			fileReader.Close()
+			if closeErr := fileReader.Close(); closeErr != nil {
+				log.Printf("Failed to close file reader: %v", closeErr)
+			}
 			continue
 		}
 
@@ -192,7 +199,9 @@ func (s *GalleryService) CreateZipArchive(photos []PhotoInfo, writer io.Writer) 
 			log.Printf("Failed to copy file %s to zip: %v", filename, err)
 		}
 
-		fileReader.Close()
+		if closeErr := fileReader.Close(); closeErr != nil {
+			log.Printf("Failed to close file reader: %v", closeErr)
+		}
 	}
 
 	return nil
@@ -283,7 +292,7 @@ func (s *GalleryService) generateUniqueFilename(originalFilename string) string 
 	}
 }
 
-func (s *GalleryService) savePhotoMetadata(filename string, info PhotoInfo) {
+func (s *GalleryService) savePhotoMetadata(filename string, info *PhotoInfo) {
 	metadataFile := filepath.Join(s.metadataDir, filename+".json")
 	data, err := json.Marshal(info)
 	if err != nil {
@@ -291,7 +300,7 @@ func (s *GalleryService) savePhotoMetadata(filename string, info PhotoInfo) {
 		return
 	}
 
-	err = os.WriteFile(metadataFile, data, 0644)
+	err = os.WriteFile(metadataFile, data, filePermissions)
 	if err != nil {
 		log.Printf("Failed to save metadata for %s: %v", filename, err)
 	}
@@ -299,6 +308,7 @@ func (s *GalleryService) savePhotoMetadata(filename string, info PhotoInfo) {
 
 func (s *GalleryService) loadPhotoMetadata(filename string) PhotoInfo {
 	metadataFile := filepath.Join(s.metadataDir, filename+".json")
+	// #nosec G304 - metadataFile is constructed from controlled metadataDir and filename
 	data, err := os.ReadFile(metadataFile)
 	if err != nil {
 		return PhotoInfo{}
