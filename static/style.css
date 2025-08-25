@@ -116,6 +116,8 @@ header h1 {
     color: #2c3e50;
 }
 
+
+
 .download-btn {
     color: #27ae60;
     text-decoration: none;
@@ -657,5 +659,278 @@ main {
     .modal-content {
         max-width: 95%;
         max-height: 95%;
+    }
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #1a1a1a;
+        color: #e5e5e5;
+    }
+
+    /* Login Page Dark Mode */
+    .login-form {
+        background: rgba(30, 30, 30, 0.95);
+        backdrop-filter: blur(10px);
+        color: #e5e5e5;
+    }
+
+    .login-form h1 {
+        color: #ffffff;
+    }
+
+    .login-form p {
+        color: #b0b0b0;
+    }
+
+    .login-form input {
+        background: #2a2a2a;
+        border: 2px solid #404040;
+        color: #e5e5e5;
+    }
+
+    .login-form input:focus {
+        border-color: #27ae60;
+        background: #333333;
+    }
+
+    .login-form input::placeholder {
+        color: #888888;
+    }
+
+    /* Gallery Page Dark Mode */
+    header {
+        background: #2a2a2a;
+        color: #e5e5e5;
+    }
+
+    header h1 {
+        color: #ffffff;
+    }
+
+    .filter-section {
+        background: #2a2a2a;
+        color: #e5e5e5;
+    }
+
+    .filter-header h3 {
+        color: #ffffff;
+    }
+
+    .photo-count {
+        color: #b0b0b0;
+    }
+
+    .filter-group label {
+        color: #e5e5e5;
+    }
+
+    .filter-group select {
+        background: #333333;
+        color: #27ae60;
+        border: 1px solid #27ae60;
+    }
+
+    .filter-group select:focus,
+    .filter-group select:hover {
+        background: #27ae60;
+        color: white;
+    }
+
+    .filter-group select option {
+        background: #333333;
+        color: #e5e5e5;
+    }
+
+    .clear-filters-btn {
+        background: #666666;
+        color: white;
+    }
+
+    .clear-filters-btn:hover {
+        background: #555555;
+    }
+
+    .upload-area {
+        background: #2a2a2a;
+        border-color: #555555;
+        color: #e5e5e5;
+    }
+
+    .upload-area:hover,
+    .upload-area.dragover {
+        border-color: #27ae60;
+        background: #2f2f2f;
+    }
+
+    .upload-area.uploading {
+        border-color: #27ae60;
+        background: #1a3a1a;
+    }
+
+    .upload-content svg {
+        color: #666666;
+    }
+
+    .upload-content p {
+        color: #b0b0b0;
+    }
+
+    .photo-item {
+        background: #2a2a2a;
+    }
+
+    .photo-attribution {
+        background: #1f1f1f;
+        border-top: 1px solid #404040;
+        color: #b0b0b0;
+    }
+
+    .event-name {
+        color: #ffffff;
+    }
+
+    .uploader-name {
+        color: #b0b0b0;
+    }
+
+    .empty-gallery {
+        color: #b0b0b0;
+    }
+
+    /* Download Section Dark Mode */
+    .download-section .download-btn {
+        color: #27ae60;
+        border-color: #27ae60;
+    }
+
+    .download-section .download-btn:hover {
+        background: #27ae60;
+        color: white;
+    }
+
+    /* Modal Dark Mode */
+    .modal {
+        background-color: rgba(0, 0, 0, 0.95);
+    }
+
+    .close {
+        color: #e5e5e5;
+    }
+
+    .close:hover {
+        color: #ffffff;
+    }
+
+    /* Upload Dialog Dark Mode */
+    .dialog-overlay {
+        background: rgba(0, 0, 0, 0.7);
+    }
+
+    .dialog-content {
+        background: #2a2a2a;
+        color: #e5e5e5;
+    }
+
+    .dialog-header {
+        border-bottom: 1px solid #404040;
+    }
+
+    .dialog-header h3 {
+        color: #ffffff;
+    }
+
+    .dialog-close {
+        color: #b0b0b0;
+    }
+
+    .dialog-close:hover {
+        color: #ffffff;
+    }
+
+    .form-group label {
+        color: #e5e5e5;
+    }
+
+    .form-group input {
+        background: #333333;
+        border: 2px solid #404040;
+        color: #e5e5e5;
+    }
+
+    .form-group input:focus {
+        border-color: #27ae60;
+        background: #3a3a3a;
+    }
+
+    .form-group input::placeholder {
+        color: #888888;
+    }
+
+    .form-group small {
+        color: #b0b0b0;
+    }
+
+    .file-list {
+        background: #1f1f1f;
+        border: 2px dashed #404040;
+    }
+
+    .no-files {
+        color: #b0b0b0;
+    }
+
+    .file-item {
+        border-bottom: 1px solid #404040;
+    }
+
+    .file-name {
+        color: #e5e5e5;
+    }
+
+    .file-size {
+        color: #b0b0b0;
+    }
+
+    .select-files-btn {
+        background: #3498db;
+        color: white;
+    }
+
+    .select-files-btn:hover {
+        background: #2980b9;
+    }
+
+    .dialog-footer {
+        border-top: 1px solid #404040;
+        background: #1f1f1f;
+    }
+
+    .btn-secondary {
+        background: #666666;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #555555;
+    }
+
+    .btn-primary {
+        background: #27ae60;
+        color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background: #229954;
+    }
+
+    .btn-primary:disabled {
+        background: #555555;
+    }
+
+    .upload-spinner {
+        border: 4px solid #404040;
+        border-top: 4px solid #27ae60;
     }
 }
