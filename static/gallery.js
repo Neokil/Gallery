@@ -1,4 +1,4 @@
-// Upload functionality
+// Upload functionality - only initialize if elements exist (gallery page)
 const uploadArea = document.getElementById('upload-area');
 const fileInput = document.getElementById('file-input');
 const uploadForm = document.getElementById('upload-form');
@@ -7,41 +7,50 @@ const uploadDialog = document.getElementById('upload-dialog');
 const fileList = document.getElementById('file-list');
 const uploadSubmitBtn = document.getElementById('upload-submit-btn');
 
-// Click to select files or drag and drop - opens dialog
-uploadArea.addEventListener('click', () => {
-    if (!uploadArea.classList.contains('uploading')) {
-        openUploadDialog();
-    }
-});
+// Only add event listeners if upload elements exist (gallery page)
+if (uploadArea && fileInput && uploadForm && uploadContent && uploadDialog && fileList && uploadSubmitBtn) {
+    // Click to select files or drag and drop - opens dialog
+    uploadArea.addEventListener('click', () => {
+        if (!uploadArea.classList.contains('uploading')) {
+            openUploadDialog();
+        }
+    });
 
-// Drag and drop
-uploadArea.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    if (!uploadArea.classList.contains('uploading')) {
-        uploadArea.classList.add('dragover');
-    }
-});
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (!uploadArea.classList.contains('uploading')) {
+            uploadArea.classList.add('dragover');
+        }
+    });
 
-uploadArea.addEventListener('dragleave', () => {
-    uploadArea.classList.remove('dragover');
-});
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
 
-uploadArea.addEventListener('drop', (e) => {
-    e.preventDefault();
-    uploadArea.classList.remove('dragover');
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
 
-    if (!uploadArea.classList.contains('uploading')) {
-        const files = e.dataTransfer.files;
-        fileInput.files = files;
-        openUploadDialog();
+        if (!uploadArea.classList.contains('uploading')) {
+            const files = e.dataTransfer.files;
+            fileInput.files = files;
+            openUploadDialog();
+            updateFileList();
+        }
+    });
+
+    // File input change
+    fileInput.addEventListener('change', () => {
         updateFileList();
-    }
-});
+    });
 
-// File input change
-fileInput.addEventListener('change', () => {
-    updateFileList();
-});
+    // Handle form submission
+    uploadForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        uploadFiles();
+    });
+}
 
 // Dialog functions
 function openUploadDialog() {
@@ -175,19 +184,12 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Handle form submission
-uploadForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    uploadFiles();
-});
-
 // Close dialog with Escape key
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeModal();
-        if (uploadDialog.style.display === 'flex') {
+        if (uploadDialog && uploadDialog.style.display === 'flex') {
             closeUploadDialog();
         }
     }
 });
-
